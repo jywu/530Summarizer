@@ -115,6 +115,6 @@ def LexRankSum(input_collection, output_folder):
         output_file = output_folder + "/" + gen_output_filename(directory)
         # create summary and write to file
         # summary = lex_sum_helper(dir_path)
-        write_to_file(output_file, summary)
+        # write_to_file(output_file, summary)
     
 # LexRankSum('/home1/c/cis530/final_project/dev_input/', '..')
