@@ -96,12 +96,12 @@ def cosine_similarity(vectorX, vectorY):
 def is_valid(sent, summary, vector, dct):
     num_words = len(word_tokenize(sent))
     vector_x = vectorize(vector, sent, dct)
-    if(num_words < 9 or num_words > 45):
+    if(num_words < 9 or num_words > 45): #need to determin threshold
         return False;
     for sent in summary:
         vector_y = vectorize(vector, sent, dct)
         sim = cosine_similarity(vector_x, vector_y)
-        if(sim > 0.5):
+        if(sim > 0.5): #need to determin threshold
             return False
     return True
 
