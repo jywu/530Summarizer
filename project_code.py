@@ -66,3 +66,55 @@ def get_tfidf(tf_dict, idf_dict):
   tfidf = dict((word, tf_dict[word]*idf_dict[word]) for word in tf_dict)
   return tfidf;
 
+### (potentially) shared methods ###
+
+def gen_output_filename(directory):
+    '''Creates an output file name by adding sum_ to input dir name'''
+    return 'sum_' + directory + '.txt'
+
+def write_to_file(file_path, summary):
+    '''Writes the given summary to file'''
+    f = open(file_path, 'w')
+    f.write(summary)
+    f.close()
+
+def add(x, y): return x + y
+
+def cosine_similarity(vectorX, vectorY):
+    numerator = 0
+    for i in range(len(vectorX)):
+        numerator += vectorX[i] * vectorY[i]
+    denom_v = [v * v for v in vectorX]
+    denom_w = [w * w for w in vectorY]
+    denom = math.sqrt(reduce(add, denom_v) * reduce(add, denom_w))
+    if denom != 0:
+        return numerator / float(denom)
+    else:
+        return 0
+    return result
+
+def is_valid(sent, summary, vector, dct):
+    num_words = len(word_tokenize(sent))
+    vector_x = vectorize(vector, sent, dct)
+    if(num_words < 9 or num_words > 45):
+        return False;
+    for sent in summary:
+        vector_y = vectorize(vector, sent, dct)
+        sim = cosine_similarity(vector_x, vector_y)
+        if(sim > 0.5):
+            return False
+    return True
+
+### LexRank Summarizer ###
+
+def LexRankSum(input_collection, output_folder):
+    dir_list = get_sub_directories(input_collection)
+    for directory in dir_list:
+        # generate input and output paths
+        dir_path = input_collection + "/" + directory
+        output_file = output_folder + "/" + gen_output_filename(directory)
+        # create summary and write to file
+        # summary = lex_sum_helper(dir_path)
+        write_to_file(output_file, summary)
+    
+# LexRankSum('/home1/c/cis530/final_project/dev_input/', '..')
