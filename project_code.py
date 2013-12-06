@@ -46,7 +46,7 @@ def tokenize_sentences(sentence_list):
   return tokens
 
 
-### TF-IDF (from HW1) ###
+### TF-IDF (from HW1 MODIFIED) ###
 
 def get_tf_path(path):
   '''Creates a dictionary of words in path mapped to term frequency'''
@@ -83,6 +83,15 @@ def make_tfidf_dict(sentences):
   tf_dict = get_tg(words)
   idf_dict = get_idf(NYT_DOCS)  
   return get_tfidf(tf_dict, idf_dict)
+
+def score_sentence_TFIDF(sentence, tfidf_dict):
+  '''Computes TFIDF score of a sentence'''
+  score = 0.0
+  words = word_tokenize(sentence)
+  for word in words:
+    score += tdidf_dict(word)
+  return score / len(words)
+    
 
 ### (potentially) shared methods ###
 
@@ -154,10 +163,11 @@ def TFIDFSum(input_collection, output_folder):
     write_to_file(output, summary)
 
 def gen_TFIDF_summary(sentences):
+  '''Makes TFIDF summary for a list of sentences'''
   summary = ""
   tfidf_dict = make_tfidf_dict(sentences)
+  scores = []
   for sentence in sentences: 
-   ## make summary
-    pass
+    scores.append(0) ## append score of sentence
   return summary
 
