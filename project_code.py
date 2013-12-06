@@ -1,8 +1,12 @@
-import os
+import os, math
+from Queue import PriorityQueue
 from nltk import FreqDist
 from nltk.corpus import PlaintextCorpusReader
 from nltk import word_tokenize
 
+### GLOBAL VARIABLES ###
+DEV = '/home1/c/cis530/final_project/dev_input/'
+TEST = '/home1/c/cis530/final_project/test_input/'
 NYT_DOCS = '/home1/c/cis530/final_project/nyt_docs/'
 
 ### Loading from Files (from HW1) ###
@@ -42,7 +46,7 @@ def tokenize_sentences(sentence_list):
   '''Returns a list of all tokens'''
   tokens = []
   for s in sentence_list:
-    toks.extend(word_tokenize(s))
+    tokens.extend(word_tokenize(s))
   return tokens
 
 
@@ -80,7 +84,7 @@ def get_tfidf(tf_dict, idf_dict):
 def make_tfidf_dict(sentences):
   '''Creates a dictionary mapping all words to TFIDF values, using NYT articles for IDF'''
   words = tokenize_sentences(sentences)
-  tf_dict = get_tg(words)
+  tf_dict = get_tf(words)
   idf_dict = get_idf(NYT_DOCS)  
   return get_tfidf(tf_dict, idf_dict)
 
@@ -166,8 +170,21 @@ def gen_TFIDF_summary(sentences):
   '''Makes TFIDF summary for a list of sentences'''
   summary = ""
   tfidf_dict = make_tfidf_dict(sentences)
-  scores = []
+
+  #Calculate sentence scores; negate so that higher TFIDFs show up first in PQ
+  neg_scores = []
   for sentence in sentences: 
-    scores.append(0) ## append score of sentence
+    neg_scores.append(-score_sentence_TFIDF(sentence, tfidf_dict))
+
+  #Rank sentences
+  pq = PriorityQueue()  
+  for pair in zip(neg_scores, sentences):
+    pq.put(pair)
+
+  #Make greedy summary
+  while len(summary) <= 100 and not pq.empty():
+    score, next_sentence = pq.get()
+    if is_valid(next_sentence):
+      summary += next_sentence + '\n'
   return summary
 
