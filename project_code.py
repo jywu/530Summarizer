@@ -8,7 +8,6 @@ from nltk import word_tokenize
 DEV = '/home1/c/cis530/final_project/dev_input/'
 TEST = '/home1/c/cis530/final_project/test_input/'
 NYT_DOCS = '/home1/c/cis530/final_project/nyt_docs/'
-NYT_IDF = get_idf(NYT_DOCS)
 
 ### Loading from Files (from HW1) ###
 def get_all_files(path):
@@ -76,9 +75,12 @@ def get_idf(directory):
   idf_dict = dict((word, math.log(N/df_dict[word])) for word in df_dict)
   return idf_dict;    
 
+NYT_IDF = get_idf(NYT_DOCS)
+NYT_LEN = len(get_all_files(NYT_DOCS))
+
 def get_tfidf(tf_dict, idf_dict):
   '''Creates dictionary of words mapped to TF-IDF values'''
-  tfidf = dict((word, tf_dict[word]*idf_dict.get(word, 1)) for word in tf_dict)
+  tfidf = dict((word, tf_dict[word]*idf_dict.get(word, math.log(NYT_LEN))) for word in tf_dict)
   return tfidf;
 
 def make_tfidf_dict(sentences):
