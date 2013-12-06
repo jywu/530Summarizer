@@ -11,9 +11,11 @@ def get_all_files(path):
 def get_sub_directories(path):
   return [filename for filename in os.listdir(path) if os.path.isdir(os.path.join(path, filename))]
 def load_file_sentences(filename):
-  '''Returns a list of lowercased sentences in file'''
-  fullstring = open(filename, 'r').read()        
-  return [sen.lower() for sen in sent_tokenize(fullstring)]  
+  '''Returns a list of lowercased sentences in file. Assumes file format is one sentence per line'''
+  f = open(filename, 'r')
+  sentences = f.readlines()
+  f.close()
+  return [sen.lower().strip() for sen in sentences]  
 def load_collection_sentences(path):
   '''Returns a list of lowercased sentences in path'''
   lists = []
