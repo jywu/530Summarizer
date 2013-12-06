@@ -8,6 +8,8 @@ def get_all_files(path):
   '''Returns a list of all files in path'''
   files_all = PlaintextCorpusReader(path, '.*')    
   return files_all.fileids()
+def get_sub_directories(path):
+  return [filename for filename in os.listdir(path) if os.path.isdir(os.path.join(path, filename))]
 def load_file_sentences(filename):
   '''Returns a list of lowercased sentences in file'''
   fullstring = open(filename, 'r').read()        
@@ -118,3 +120,25 @@ def LexRankSum(input_collection, output_folder):
         # write_to_file(output_file, summary)
     
 # LexRankSum('/home1/c/cis530/final_project/dev_input/', '..')
+
+
+
+
+### TF-IDF Summarizer ###
+def TFIDFSum(input_collection, output_folder):
+  if not input_collection.endswith('/'):
+    input_collection += '/'
+  if not output_folder.endswith('/'):
+    output_folder += '/'
+  dir_list = get_sub_directories(input_collection)
+  for directory in dir_list:
+    sentences = load_collection_sentences(input_collection + directory)
+    summary = gen_TFIDF_summary(sentences)
+    output = output_folder + gen_output_filename(directory)
+    write_to_file(output, summary)
+
+def gen_TFIDF_summary(sentences):
+  summary = ""
+#make summary
+  return summary
+

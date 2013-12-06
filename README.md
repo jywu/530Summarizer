@@ -1,4 +1,4 @@
-530Summerizer
+530Summarizer
 =============
 
 530 Final Project
