@@ -3,6 +3,8 @@ from nltk import FreqDist
 from nltk.corpus import PlaintextCorpusReader
 from nltk import word_tokenize
 
+NYT_DOCS = '/home1/c/cis530/final_project/nyt_docs/'
+
 ### Loading from Files (from HW1) ###
 def get_all_files(path):
   '''Returns a list of all files in path'''
@@ -46,9 +48,14 @@ def tokenize_sentences(sentence_list):
 
 ### TF-IDF (from HW1) ###
 
-def get_tf(path):
-  '''Creates a dictionary of words mapped to term frequency'''
-  freqs = FreqDist(get_dir_words(path))
+def get_tf_path(path):
+  '''Creates a dictionary of words in path mapped to term frequency'''
+  get_tf(get_dir_words(path))
+
+
+def get_tf(tokens):
+  '''Creates a dictionary of tokens mapped to frequency in list'''
+  freqs = FreqDist(tokens)
   word_count = sum(freqs.values())
   df_dict = dict((x, (freqs[x]+0.0)) for x in freqs)
   return df_dict
@@ -69,6 +76,13 @@ def get_tfidf(tf_dict, idf_dict):
   '''Creates dictionary of words mapped to TF-IDF values'''
   tfidf = dict((word, tf_dict[word]*idf_dict[word]) for word in tf_dict)
   return tfidf;
+
+def make_tfidf_dict(sentences):
+  '''Creates a dictionary mapping all words to TFIDF values, using NYT articles for IDF'''
+  words = tokenize_sentences(sentences)
+  tf_dict = get_tg(words)
+  idf_dict = get_idf(NYT_DOCS)  
+  return get_tfidf(tf_dict, idf_dict)
 
 ### (potentially) shared methods ###
 
@@ -141,6 +155,9 @@ def TFIDFSum(input_collection, output_folder):
 
 def gen_TFIDF_summary(sentences):
   summary = ""
-#make summary
+  tfidf_dict = make_tfidf_dict(sentences)
+  for sentence in sentences: 
+   ## make summary
+    pass
   return summary
 
