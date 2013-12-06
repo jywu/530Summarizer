@@ -98,6 +98,10 @@ def score_sentence_TFIDF(sentence, tfidf_dict):
 
 ### (potentially) shared methods ###
 
+def summary_length(summary_list):
+  '''Calculates total word length of summary, if summary is a list of sentences'''
+  return reduce(lambda acc, sen: acc + len(word_tokenize(sen)), summary_list, 0)
+
 def gen_output_filename(directory):
     '''Creates an output file name by adding sum_ to input dir name'''
     return 'sum_' + directory + '.txt'
@@ -135,9 +139,10 @@ def vectorize_w(feature_space, vocabulary,dct):
             vectors[feature_space[word]] = dct.get(word, 0)
     return vectors
 def vectorize(feature_space, sentence, dct):
-    return vectorize_w(feature_space, list(set(word_tokenize(sentence))))
+    return vectorize_w(feature_space, list(set(word_tokenize(sentence))), dct)
 
 def is_valid(sent, summary, dct, vector=None):
+    if len(summary) == 0: return True
     if vector == None: vector = create_feature_space(summary)
     num_words = len(word_tokenize(sent))
     vector_x = vectorize(vector, sent, dct)
@@ -182,7 +187,7 @@ def TFIDFSum(input_collection, output_folder):
 
 def gen_TFIDF_summary(sentences):
   '''Makes TFIDF summary for a list of sentences'''
-  summary = ""
+  summary = []
   tfidf_dict = make_tfidf_dict(sentences)
 
   #Calculate sentence scores; negate so that higher TFIDFs show up first in PQ
@@ -196,9 +201,9 @@ def gen_TFIDF_summary(sentences):
     pq.put(pair)
 
   #Make greedy summary
-  while len(summary) <= 100 and not pq.empty():
+  while summary_length(summary) <= 100 and not pq.empty():
     score, next_sentence = pq.get()
-    if is_valid(next_sentence):
-      summary += next_sentence + '\n'
+    if is_valid(next_sentence, summary, tfidf_dict):
+      summary.append(next_sentence)
   return summary
 
