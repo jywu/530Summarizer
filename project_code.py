@@ -8,6 +8,7 @@ from nltk import word_tokenize
 DEV = '/home1/c/cis530/final_project/dev_input/'
 TEST = '/home1/c/cis530/final_project/test_input/'
 NYT_DOCS = '/home1/c/cis530/final_project/nyt_docs/'
+NYT_IDF = get_idf(NYT_DOCS)
 
 ### Loading from Files (from HW1) ###
 def get_all_files(path):
@@ -83,9 +84,8 @@ def get_tfidf(tf_dict, idf_dict):
 def make_tfidf_dict(sentences):
   '''Creates a dictionary mapping all words to TFIDF values, using NYT articles for IDF'''
   words = tokenize_sentences(sentences)
-  tf_dict = get_tf(words)
-  idf_dict = get_idf(NYT_DOCS)  
-  return get_tfidf(tf_dict, idf_dict)
+  tf_dict = get_tf(words) 
+  return get_tfidf(tf_dict, NYT_IDF)
 
 def score_sentence_TFIDF(sentence, tfidf_dict):
   '''Computes TFIDF score of a sentence'''
@@ -174,10 +174,8 @@ def LexRankSum(input_collection, output_folder):
 
 ### TF-IDF Summarizer ###
 def TFIDFSum(input_collection, output_folder):
-  if not input_collection.endswith('/'):
-    input_collection += '/'
-  if not output_folder.endswith('/'):
-    output_folder += '/'
+  if not input_collection.endswith('/'): input_collection += '/'
+  if not output_folder.endswith('/'): output_folder += '/'
   dir_list = get_sub_directories(input_collection)
   for directory in dir_list:
     sentences = load_collection_sentences(input_collection + directory)
