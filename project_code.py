@@ -60,7 +60,6 @@ def get_tf_path(path):
 def get_tf(tokens):
   '''Creates a dictionary of tokens mapped to frequency in list'''
   freqs = FreqDist(tokens)
-  word_count = sum(freqs.values())
   df_dict = dict((x, (freqs[x]+0.0)) for x in freqs)
   return df_dict
            
@@ -93,7 +92,7 @@ def score_sentence_TFIDF(sentence, tfidf_dict):
   score = 0.0
   words = word_tokenize(sentence)
   for word in words:
-    score += tdidf_dict(word)
+    score += tfidf_dict[word]
   return score / len(words)
     
 
@@ -124,15 +123,30 @@ def cosine_similarity(vectorX, vectorY):
         return 0
     return result
 
-def is_valid(sent, summary, vector, dct):
+
+def create_feature_space(sentences):
+    tokens = [word_tokenize(s) for s in sentences]
+    vocabulary = set(reduce(lambda x, y: x + y, tokens))
+    return dict([(voc, i) for (i, voc) in enumerate(vocabulary)])
+def vectorize_w(feature_space, vocabulary,dct):
+    vectors = [0] * len(feature_space)
+    for word in vocabulary:
+        if (feature_space.has_key(word)):
+            vectors[feature_space[word]] = dct.get(word, 0)
+    return vectors
+def vectorize(feature_space, sentence, dct):
+    return vectorize_w(feature_space, list(set(word_tokenize(sentence))))
+
+def is_valid(sent, summary, dct, vector=None):
+    if vector == None: vector = create_feature_space(summary)
     num_words = len(word_tokenize(sent))
     vector_x = vectorize(vector, sent, dct)
-    if(num_words < 9 or num_words > 45): #need to determin threshold
+    if(num_words < 9 or num_words > 45): #need to determine threshold
         return False;
     for sent in summary:
         vector_y = vectorize(vector, sent, dct)
         sim = cosine_similarity(vector_x, vector_y)
-        if(sim > 0.5): #need to determin threshold
+        if(sim > 0.5): #need to determine threshold
             return False
     return True
 
