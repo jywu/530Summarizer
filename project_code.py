@@ -1,7 +1,7 @@
 import os
 from nltk import FreqDist
 from nltk.corpus import PlaintextCorpusReader
-from nltk import sent_tokenize, word_tokenize
+from nltk import word_tokenize
 
 ### Loading from Files (from HW1) ###
 def get_all_files(path):
