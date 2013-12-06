@@ -68,7 +68,7 @@ def get_idf(directory):
   '''Creates dictionary of words mapped to IDF'''
   df_dict = {};
   full_vocab = list(set(load_collection_tokens(directory)))
-  for vocab in full_vocab: df_dict[vocab] = 0        
+  for vocab in full_vocab: df_dict[vocab] = 1        
   files = get_all_files(directory); N = len(files)
   for eachfile in files:
     tokens = list(set(load_file_tokens(os.path.join(directory, eachfile))))
@@ -78,7 +78,7 @@ def get_idf(directory):
 
 def get_tfidf(tf_dict, idf_dict):
   '''Creates dictionary of words mapped to TF-IDF values'''
-  tfidf = dict((word, tf_dict[word]*idf_dict[word]) for word in tf_dict)
+  tfidf = dict((word, tf_dict[word]*idf_dict.get(word, 1)) for word in tf_dict)
   return tfidf;
 
 def make_tfidf_dict(sentences):
