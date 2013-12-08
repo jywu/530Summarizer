@@ -1,32 +1,33 @@
-import numpy
-import os
-import math
+import itertools
+from operator import itemgetter
+from Queue import PriorityQueue
+from numpy import linalg as LA
+import numpy as np
+import math, os, operator
 from nltk import FreqDist
 from nltk.corpus import PlaintextCorpusReader
-from nltk import sent_tokenize, word_tokenize
+from nltk import word_tokenize
 
-ROOT_DIR = '/home1/c/cis530/final_project/'
-DEV_INPUT = '/home1/c/cis530/final_project/dev_input/'
-DEV_MODELS = '/home1/c/cis530/final_project/dev_models/'
-TEST_INPUT = '/home1/c/cis530/final_project/test_input/'
+### GLOBAL VARIABLES ###
+DEV = '/home1/c/cis530/final_project/dev_input/'
+TEST = '/home1/c/cis530/final_project/test_input/'
 NYT_DOCS = '/home1/c/cis530/final_project/nyt_docs/'
 
 ### Loading from Files (from HW1) ###
-def get_sub_directories(directory):
-    sub_dirs = os.listdir(directory)
-    if '.DS_Store' in sub_dirs:
-        sub_dirs.remove('.DS_Store')
-    return sub_dirs
-
 def get_all_files(path):
   '''Returns a list of all files in path'''
   files_all = PlaintextCorpusReader(path, '.*')    
   return files_all.fileids()
 
+def get_sub_directories(path):
+  return [filename for filename in os.listdir(path) if os.path.isdir(os.path.join(path, filename))]
+
 def load_file_sentences(filename):
-  '''Returns a list of lowercased sentences in file'''
-  fullstring = open(filename, 'r').read()        
-  return [sen.lower() for sen in sent_tokenize(fullstring)]  
+  '''Returns a list of lowercased sentences in file. Assumes file format is one sentence per line'''
+  f = open(filename, 'r')
+  sentences = f.readlines()
+  f.close()
+  return [sen.lower().strip() for sen in sentences]  
 
 def load_collection_sentences(path):
   '''Returns a list of lowercased sentences in path'''
@@ -56,16 +57,19 @@ def tokenize_sentences(sentence_list):
   '''Returns a list of all tokens'''
   tokens = []
   for s in sentence_list:
-    toks.extend(word_tokenize(s))
+    tokens.extend(word_tokenize(s))
   return tokens
 
 
-### TF-IDF (from HW1) ###
+### TF-IDF (from HW1 MODIFIED) ###
 
-def get_tf(path):
-  '''Creates a dictionary of words mapped to term frequency'''
-  freqs = FreqDist(get_dir_words(path))
-  word_count = sum(freqs.values())
+def get_tf_path(path):
+    '''Creates a dictionary of words in path mapped to term frequency'''
+    return get_tf(get_dir_words(path))
+
+def get_tf(tokens):
+  '''Creates a dictionary of tokens mapped to frequency in list'''
+  freqs = FreqDist(tokens)
   df_dict = dict((x, (freqs[x]+0.0)) for x in freqs)
   return df_dict
            
@@ -73,7 +77,7 @@ def get_idf(directory):
   '''Creates dictionary of words mapped to IDF'''
   df_dict = {};
   full_vocab = list(set(load_collection_tokens(directory)))
-  for vocab in full_vocab: df_dict[vocab] = 0        
+  for vocab in full_vocab: df_dict[vocab] = 1        
   files = get_all_files(directory); N = len(files)
   for eachfile in files:
     tokens = list(set(load_file_tokens(os.path.join(directory, eachfile))))
@@ -81,14 +85,35 @@ def get_idf(directory):
   idf_dict = dict((word, math.log(N/df_dict[word])) for word in df_dict)
   return idf_dict;    
 
+NYT_IDF = get_idf(NYT_DOCS)
+NYT_LEN = len(get_all_files(NYT_DOCS))
+
 def get_tfidf(tf_dict, idf_dict):
   '''Creates dictionary of words mapped to TF-IDF values'''
-  tfidf = dict((word, tf_dict[word]*idf_dict[word]) for word in tf_dict)
+  tfidf = dict((word, tf_dict[word]*idf_dict.get(word, math.log(NYT_LEN))) for word in tf_dict)
   return tfidf;
 
+def make_tfidf_dict(sentences):
+  '''Creates a dictionary mapping all words to TFIDF values, using NYT articles for IDF'''
+  words = tokenize_sentences(sentences)
+  tf_dict = get_tf(words) 
+  return get_tfidf(tf_dict, NYT_IDF)
 
+def score_sentence_TFIDF(sentence, tfidf_dict):
+  '''Computes TFIDF score of a sentence'''
+  score = 0.0
+  words = word_tokenize(sentence)
+  for word in words:
+    score += tfidf_dict[word]
+  return score / len(words)
+    
 
-### potentially shared methods ###
+### (potentially) shared methods ###
+
+def summary_length(summary_list):
+  '''Calculates total word length of summary, if summary is a list of sentences'''
+  return reduce(lambda acc, sen: acc + len(word_tokenize(sen)), summary_list, 0)
+
 def gen_output_filename(directory):
     '''Creates an output file name by adding sum_ to input dir name'''
     return 'sum_' + directory + '.txt'
@@ -99,10 +124,9 @@ def write_to_file(file_path, summary):
     f.write(summary)
     f.close()
 
-def add(x, y): return x+y
+def add(x, y): return x + y
 
 def cosine_similarity(vectorX, vectorY):
-    '''Calculates cosine similarity between two vectors'''
     numerator = 0
     for i in range(len(vectorX)):
         numerator += vectorX[i] * vectorY[i]
@@ -115,118 +139,125 @@ def cosine_similarity(vectorX, vectorY):
         return 0
     return result
 
-def is_valid(sent, summary, vector, dct):
-    '''Checks if a sentence is valid'''
+def create_feature_space(sentences):
+    tokens = [word_tokenize(s) for s in sentences]
+    vocabulary = set(reduce(lambda x, y: x + y, tokens))
+    return dict([(voc, i) for (i, voc) in enumerate(vocabulary)])
+
+def vectorize_w(feature_space, vocabulary,dct):
+    vectors = [0] * len(feature_space)
+    for word in vocabulary:
+        if (feature_space.has_key(word)):
+            vectors[feature_space[word]] = dct.get(word, 0)
+    return vectors
+
+def vectorize(feature_space, sentence, dct):
+    return vectorize_w(feature_space, list(set(word_tokenize(sentence))), dct)
+
+def is_valid(sent, summary, dct, vector=None):
+    if len(summary) == 0: return True
+    if vector == None: vector = create_feature_space(summary)
     num_words = len(word_tokenize(sent))
     vector_x = vectorize(vector, sent, dct)
-    if(num_words < 9 or num_words > 45):
+    if(num_words < 9 or num_words > 45): #need to determine threshold
         return False;
     for sent in summary:
         vector_y = vectorize(vector, sent, dct)
         sim = cosine_similarity(vector_x, vector_y)
-        if(sim > 0.5):
+        if(sim > 0.5): #need to determine threshold
             return False
     return True
 
 ### LexRank Summarizer ###
 
-THRESHOLD = 0.5
-STOP_LEVEL = 0.1
+THRESHOLD = 0.001
 
-def get_file_sent_pairs(dir_path):
-    '''Builds a list of (file, sentence) tuples'''
-    files = get_all_files(dir_path)
-    for f in files:
-        file_path = dir_path + '/' + f
-        file_sents = load_file_sentences(file_path)
-        for sent in file_sents:
-            all_sents += (f, sent)
-    return all_sents
-
-def get_file_token_tf_dict(dir_path):
-    '''Builds a tf dictionary of (f, word):tf '''
-    files = get_all_files(dir_path)
-    tf_dict = dict()
-    for f in files:
-        file_path = dir_path + '/' + f
-        file_tf_dict = get_tf_path(file_path)
-        for key in file_tf_dict.keys():
-            newkey = (f, key)
-            value = file_tf_dict[key]
-            tf_dict[newkey] = value
-    return tf_dict
-
-def build_feature_space(all_sents, all_words):
+def build_feature_space(all_sents, tfidf_dict):
     feature_space = []
     for sent in all_sents:
         row = []
-        for word in all_words:
-            if word[1] in sent[1]:
-                row += tfidf_dict[word]
+        for word in tfidf_dict.keys():
+            if word in sent:
+                row.append(tfidf_dict[word])
             else:
-                row += 0
-        feature_space += row
+                row.append(0)
+        feature_space.append(row)
     return feature_space
 
-def make_graph(feature_space):
-    pairs = list(itertools.combinations(feature_space, 2))
-    graph = dict((pair, []) for pair in pairs)
-    for pair in pairs:
-        similarity = consine_similarity(pair[0], pair[1])
-        if similarity > THRESHOLD:
-            graph[pair[0]] += pair[1]
-            graph[pair[1]] += pair[0]
-    return graph
+def normalize_matrix(matrix):
+    for i in range(len(matrix)):
+        row = matrix[i]
+        sum_value = sum(row)
+        if sum_value != 0:
+            matrix[i] = [(sim * 1.0 /sum_value) for sim in row]
+    return matrix 
+
+def build_similarity_matrix(feature_space):
+    length = len(feature_space)
+    matrix = [[None for i in range(length)] for j in range(length)]
+    for i in range(length):
+        for j in range(length):
+            if matrix[i][j] == None:
+                row1 = feature_space[i]
+                row2 = feature_space[j]
+                sim = cosine_similarity(row1, row2)
+                matrix[i][j] = sim
+                matrix[j][i] = sim
+    return matrix
+
+def make_graph(feature_space, all_sents):
+    matrix = build_similarity_matrix(feature_space)
+    length = len(all_sents)
+    graph = [[0 for i in range(length)] for j in range(length)]
+    for row in range(len(matrix)):
+        for col in range(len(matrix)):
+            if matrix[row][col] > THRESHOLD:
+                graph[row][col] = 1
+    return normalize_matrix(graph)
 
 def page_rank_iteration(graph, all_sents):
-    score_dict = dict((sent[1], (1, 0)) for sent in sents)
-    diff = 1 
-    while(diff < STOP_LEVEL):
-        # calculate share
-        for tupl in all_sents:
-            sent = tupl[1]
-            neighbours = graph[sent]
-            share = score_dict[sent][0] * 1.0 / len(neighbours)
-            share_dict[sent][1] = share
-            for neighbour in neighbours:
-                score_dict[neighbour][1] += share
-        # update score, calc diff, reset share
-        diff = 0
-        for key in score_dict.keys():
-            share = score_dict[key][1]
-            score_dict[key][0] += share
-            diff += share * share
-            score_dict[key][1] = 0
-        diff = math.sqrt(diff)
-    # sort according to value, and get top sentences
-    sorted_dict = sorted(score_dict.iteritems(), key=itemgetter(1)[0], reverse=True)
-    return [pair[0] for pair in sorted_dict]
+    # get principle eigenvector
+    values, vectors = LA.eig(graph)
+    max_index = np.argmax(values)
+    # print 'max_index', max_index
+    eig_vector = vectors[max_index]
+    # print eig_vector
+    score_dict = dict()
+    for i in range(len(all_sents)):
+        score_dict[all_sents[i]] = eig_vector[i]
 
-def get_top_sentences(sents, num_words):
+    # sort according to value, and get top sentences
+    sorted_dict = sorted(score_dict.iteritems(), key=itemgetter(1), reverse=True)
+    return [entry[0] for entry in sorted_dict]
+
+def get_top_sentences(sents, num_words, tfidf_dict):
     num_token = 0
     result = []
-    for sent in sents:
-        num_token += len(word_tokenize(sent))
-        result += sent
-        if num_token > 0:
-            result -= sent
-            break
+    while(num_token <= 100):
+        sent = sents.pop(0)
+        if is_valid(sent, result, tfidf_dict):
+            result.append(sent)
+            num_token += len(word_tokenize(sent))
     return result
 
 def lex_sum_helper(dir_path):
-    tf_dict = get_file_token_tf_dict(dir_path)
-    tfidf = dict((word, tf_dict[word]*idf_dict.get(word[1], 1)) for word in tf_dict)
-    all_sents = get_file_sent_pairs(dir_path)
-    all_words = tfidf_dict.keys()
-    feature_space = build_feature_space(all_sents, all_words)
-    graph = make_graph(feature_space) 
-    filtered_sents = page_rank_iteration(graph, all_sents)
+    all_sents = load_collection_sentences(dir_path)
+    tfidf_dict = make_tfidf_dict(all_sents)
+    feature_space = build_feature_space(all_sents, tfidf_dict)
+    # feature_space = create_feature_space(all_sents)
+    print 'feature_space!'
+    graph = make_graph(feature_space,all_sents)
+    print 'graph!'
+    sorted_sents = page_rank_iteration(graph, all_sents)
+    print 'sorted sents!'
+    filtered_sents = get_top_sentences(sorted_sents, 100, tfidf_dict)
     summary = '\n'.join(filtered_sents)
     return summary
-    
+
 def LexRankSum(input_collection, output_folder):
     dir_list = get_sub_directories(input_collection)
     for directory in dir_list:
+        print directory
         # generate input and output paths
         dir_path = input_collection + "/" + directory
         output_file = output_folder + "/" + gen_output_filename(directory)
@@ -234,5 +265,38 @@ def LexRankSum(input_collection, output_folder):
         summary = lex_sum_helper(dir_path)
         write_to_file(output_file, summary)
     
-LexRankSum('/home1/c/cis530/final_project/dev_input/', '..')
+LexRankSum(DEV, '../lexPageRank')
+
+### TF-IDF Summarizer ###
+def TFIDFSum(input_collection, output_folder):
+  if not input_collection.endswith('/'): input_collection += '/'
+  if not output_folder.endswith('/'): output_folder += '/'
+  dir_list = get_sub_directories(input_collection)
+  for directory in dir_list:
+    sentences = load_collection_sentences(input_collection + directory)
+    summary = gen_TFIDF_summary(sentences)
+    output = output_folder + gen_output_filename(directory)
+    write_to_file(output, summary)
+
+def gen_TFIDF_summary(sentences):
+  '''Makes TFIDF summary for a list of sentences'''
+  summary = []
+  tfidf_dict = make_tfidf_dict(sentences)
+
+  #Calculate sentence scores; negate so that higher TFIDFs show up first in PQ
+  neg_scores = []
+  for sentence in sentences: 
+    neg_scores.append(-score_sentence_TFIDF(sentence, tfidf_dict))
+
+  #Rank sentences
+  pq = PriorityQueue()  
+  for pair in zip(neg_scores, sentences):
+    pq.put(pair)
+
+  #Make greedy summary
+  while summary_length(summary) <= 100 and not pq.empty():
+    score, next_sentence = pq.get()
+    if is_valid(next_sentence, summary, tfidf_dict):
+      summary.append(next_sentence)
+  return summary
 
