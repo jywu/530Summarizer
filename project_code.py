@@ -267,6 +267,7 @@ def LexRankSum(input_collection, output_folder):
     
 LexRankSum(DEV, '../lexPageRank')
 
+
 ### TF-IDF Summarizer ###
 def TFIDFSum(input_collection, output_folder):
   if not input_collection.endswith('/'): input_collection += '/'
