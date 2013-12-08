@@ -265,17 +265,17 @@ def LexRankSum(input_collection, output_folder):
         summary = lex_sum_helper(dir_path)
         write_to_file(output_file, summary)
     
-LexRankSum(DEV, '../lexPageRank')
+#LexRankSum(DEV, '../lexPageRank')
 
 
-### TF-IDF Summarizer ###
+### TF-IDF Summarizer ### ROUGE-2 Recall (DEV) = 0.06932
 def TFIDFSum(input_collection, output_folder):
   if not input_collection.endswith('/'): input_collection += '/'
   if not output_folder.endswith('/'): output_folder += '/'
   dir_list = get_sub_directories(input_collection)
   for directory in dir_list:
     sentences = load_collection_sentences(input_collection + directory)
-    summary = gen_TFIDF_summary(sentences)
+    summary = "\n".join(gen_TFIDF_summary(sentences))
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
 
