@@ -5,11 +5,13 @@ import math, os, operator
 from nltk import FreqDist
 from nltk.corpus import PlaintextCorpusReader
 from nltk import word_tokenize
+from nltk.corpus import stopwords
 
 ### GLOBAL VARIABLES ###
 DEV = '/home1/c/cis530/final_project/dev_input/'
 TEST = '/home1/c/cis530/final_project/test_input/'
 NYT_DOCS = '/home1/c/cis530/final_project/nyt_docs/'
+STOP = set(stopwords.words('english'))
 
 ### Loading from Files (from HW1) ###
 def get_all_files(path):
@@ -266,8 +268,8 @@ def summarize(input_collection, output_folder, method):
   for directory in dir_list:
     sentences = load_collection_sentences(input_collection + directory)
     if (method == 1): summary = gen_TFIDF_summary(sentences)
-    else if (method == 2) : summary = lex_sum_helper(input_collection + directory)
-    else if (method == 3) : summary = get_KL_summary(sentences)
+    elif (method == 2) : summary = lex_sum_helper(input_collection + directory)
+    elif (method == 3) : summary = gen_KL_summary(sentences)
     else : summary = ""
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
@@ -297,10 +299,10 @@ def gen_TFIDF_summary(sentences):
     score, next_sentence = pq.get()
     if is_valid(next_sentence, summary, tfidf_dict):
       summary.append(next_sentence)
-  return "n".join(summary)
+  return "\n".join(summary)
 
 
-### Greedy KL Summarizer ###
+### Greedy KL Summarizer ### current ROUGE-2 = 0.05957
 def KLSum(input_collection, output_folder):
   summarize(input_collection, output_folder, 3)
 
@@ -309,7 +311,7 @@ def gen_KL_summary(sentences):
   summary_words = []
   summary_freqs = {}
 
-  tokenized = [word_tokenize(s) for s in sentences]
+  tokenized = [filter(lambda w: w not in STOP, word_tokenize(s)) for s in sentences]
   sent_freqs = [make_unigram_dict(t) for t in tokenized]
 
   ## Make distribution Q
@@ -337,7 +339,7 @@ def gen_KL_summary(sentences):
       summary.append(to_add)
       summary_words.extend(to_add_words)
       update(summary_freqs, to_add_freqs)
-  return "n".join(summary)
+  return "\n".join(summary)
 
 
 def calculate_KL(p_sum, p_sent, length, q):
