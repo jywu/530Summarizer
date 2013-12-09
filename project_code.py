@@ -1,8 +1,6 @@
 import itertools
 from operator import itemgetter
 from Queue import PriorityQueue
-from numpy import linalg as LA
-import numpy as np
 import math, os, operator
 from nltk import FreqDist
 from nltk.corpus import PlaintextCorpusReader
@@ -23,14 +21,14 @@ def get_sub_directories(path):
   return [filename for filename in os.listdir(path) if os.path.isdir(os.path.join(path, filename))]
 
 def load_file_sentences(filename):
-  '''Returns a list of lowercased sentences in file. Assumes file format is one sentence per line'''
+  '''Returns a list of sentences in file. Assumes file format is one sentence per line'''
   f = open(filename, 'r')
   sentences = f.readlines()
   f.close()
-  return [sen.lower().strip() for sen in sentences]  
+  return [sen.strip() for sen in sentences]  
 
 def load_collection_sentences(path):
-  '''Returns a list of lowercased sentences in path'''
+  '''Returns a list of sentences in path'''
   lists = []
   for f in get_all_files(path):
     lists.extend(load_file_sentences(os.path.join(path, f)))
@@ -164,13 +162,13 @@ def is_valid(sent, summary, dct, vector=None):
     for sent in summary:
         vector_y = vectorize(vector, sent, dct)
         sim = cosine_similarity(vector_x, vector_y)
-        if(sim > 0.5): #need to determine threshold
+        if(sim > 2): #need to determine threshold
             return False
     return True
 
 ### LexRank Summarizer ###
 
-THRESHOLD = 0.001
+THRESHOLD = 0.008
 
 def build_feature_space(all_sents, tfidf_dict):
     feature_space = []
@@ -213,19 +211,12 @@ def make_graph(feature_space, all_sents):
         for col in range(len(matrix)):
             if matrix[row][col] > THRESHOLD:
                 graph[row][col] = 1
-    return normalize_matrix(graph)
+    # return normalize_matrix(graph)
+    return graph
 
 def page_rank_iteration(graph, all_sents):
-    # get principle eigenvector
-    values, vectors = LA.eig(graph)
-    max_index = np.argmax(values)
-    # print 'max_index', max_index
-    eig_vector = vectors[max_index]
-    # print eig_vector
-    score_dict = dict()
-    for i in range(len(all_sents)):
-        score_dict[all_sents[i]] = eig_vector[i]
-
+    sums = [sum(row) for row in graph]
+    score_dict = dict(zip(all_sents, sums))
     # sort according to value, and get top sentences
     sorted_dict = sorted(score_dict.iteritems(), key=itemgetter(1), reverse=True)
     return [entry[0] for entry in sorted_dict]
