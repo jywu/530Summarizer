@@ -85,7 +85,7 @@ def get_idf(directory):
   idf_dict = dict((word, math.log(N/df_dict[word])) for word in df_dict)
   return idf_dict;    
 
-NYT_IDF = get_idf(NYT_DOCS)
+#NYT_IDF = get_idf(NYT_DOCS)
 NYT_LEN = len(get_all_files(NYT_DOCS))
 
 def get_tfidf(tf_dict, idf_dict):
@@ -314,48 +314,59 @@ def KLSum(input_collection, output_folder):
     write_to_file(output, summary)
 
 def gen_KL_summary(sentences):
-  summary = [] ##summary will be a list of WORDS
+  summary = []
+  summary_words = []
   summary_freqs = {}
+
   tokenized = [word_tokenize(s) for s in sentences]
-  sent_freqs = [make_unigram_dict(s) for s in sentences]
+  sent_freqs = [make_unigram_dict(t) for t in tokenized]
+
+  ## Make distribution Q
   all_tokens = [token for sentence in tokenized for token in sentence] #flattens list
   input_freqs = make_unigram_dict(all_tokens)
-  while len(summary) <= 100 and len(tokenized) > 0:
+  input_probs = dict([(word, input_freqs[word] / len(all_tokens)) for word in input_freqs.keys()])
 
+  while len(summary_words) <= 100 and len(tokenized) > 0:
     ## find sentence with minimum KL
     min_index = 0
-    min_kl = calculate_KL(summary_freqs, sent_freqs[min_index], input_freqs)
+    length = len(summary_words) + len(tokenized[0])
+    min_kl = calculate_KL(summary_freqs, sent_freqs[min_index], length, input_probs)
     for i in range(1, len(tokenized)):
-      next_kl = calculate_KL(summary + tokenized[i], summary_freqs, sent_freqs[i], input_freqs)
+      length = len(summary_words) + len(tokenized[i])
+      next_kl = calculate_KL(summary_freqs, sent_freqs[i], length, input_freqs)
       if next_kl < min_kl:
         min_index = 1
         min_kl = next_kl
 
     ## Remove from list and add to summary if valid
-    to_add = tokenized.pop(min_index)
-    sent_freqs.pop(min_index)
-    ## if is_valid  ## needs summary as list of sentences
-    summary.extend(to_add)
+    to_add = sentences.pop(min_index)
+    to_add_words = tokenized.pop(min_index)
+    to_add_freqs = sent_freqs.pop(min_index)
+    if is_valid(to_add, summary, input_freqs):  ## checks divergence using frequency only (not tfidf)
+      summary.append(to_add)
+      summary_words.extend(to_add_words)
+      update(summary_freqs, to_add_freqs)
   return summary     
 
 
-def calculate_KL(words, p_sum, p_sent, q):
+def calculate_KL(p_sum, p_sent, length, q):
   '''Calculates KL divergence given a list of words, frequency in P, and frequency in Q(input)'''
   '''Caller provides two frequency dicts for P: one for the summary, and one for the sentence that is being considered or addition; this is to avoid copying the summary dict for every sentence'''
   total = 0.0
   words = set(p_sum.keys() + p_sent.keys())
   for word in words:
-    p_word = (p_sum.get(word, 0.0) + p_sent.get(word, 0.0)) / words  #### WRONG DENOM
-    q_word = freq_q[word] / len(freq_q)
+    p_word = (p_sum.get(word, 0.0) + p_sent.get(word, 0.0)) / length
+    q_word = q[word]
     total += p_word * math.log(p_word/q_word)
   return total
  
 def make_unigram_dict(tokens):
+  '''Create frequency distribution'''
   freq_dict = {}
   for token in tokens:
     freq_dict[token] = freq_dict.get(token, 0) + 1.0
   return freq_dict
 def update(sum_dict, sent_dict):
+  '''Updates sum_dict with values from sent_dict'''
   for (word, freq) in sent_dict.items():
     sum_dict[word] = sum_dict.get(word, 0.0) + freq
-  return sum_dict
