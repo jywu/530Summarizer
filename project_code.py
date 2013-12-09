@@ -259,16 +259,23 @@ def LexRankSum(input_collection, output_folder):
 #LexRankSum(DEV, '../lexPageRank')
 
 
-### TF-IDF Summarizer ### ROUGE-2 Recall (DEV) = 0.06932
-def TFIDFSum(input_collection, output_folder):
+def summarize(input_collection, output_folder, method):
   if not input_collection.endswith('/'): input_collection += '/'
   if not output_folder.endswith('/'): output_folder += '/'
   dir_list = get_sub_directories(input_collection)
   for directory in dir_list:
     sentences = load_collection_sentences(input_collection + directory)
-    summary = "\n".join(gen_TFIDF_summary(sentences))
+    if (method == 1): summary = gen_TFIDF_summary(sentences)
+    else if (method == 2) : summary = lex_sum_helper(input_collection + directory)
+    else if (method == 3) : summary = get_KL_summary(sentences)
+    else : summary = ""
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
+
+
+### TF-IDF Summarizer ### ROUGE-2 Recall (DEV) = 0.06932
+def TFIDFSum(input_collection, output_folder):
+  summarize(input_collection, output_folder, 1)
 
 def gen_TFIDF_summary(sentences):
   '''Makes TFIDF summary for a list of sentences'''
@@ -290,19 +297,12 @@ def gen_TFIDF_summary(sentences):
     score, next_sentence = pq.get()
     if is_valid(next_sentence, summary, tfidf_dict):
       summary.append(next_sentence)
-  return summary
+  return "n".join(summary)
 
 
 ### Greedy KL Summarizer ###
 def KLSum(input_collection, output_folder):
-  if not input_collection.endswith('/'): input_collection += '/'
-  if not output_folder.endswith('/'): output_folder += '/'
-  dir_list = get_sub_directories(input_collection)
-  for directory in dir_list:
-    sentences = load_collection_sentences(input_collection + directory)
-    summary = "\n".join(gen_KL_summary(sentences))
-    output = output_folder + gen_output_filename(directory)
-    write_to_file(output, summary)
+  summarize(input_collection, output_folder, 3)
 
 def gen_KL_summary(sentences):
   summary = []
@@ -337,7 +337,7 @@ def gen_KL_summary(sentences):
       summary.append(to_add)
       summary_words.extend(to_add_words)
       update(summary_freqs, to_add_freqs)
-  return summary     
+  return "n".join(summary)
 
 
 def calculate_KL(p_sum, p_sent, length, q):
