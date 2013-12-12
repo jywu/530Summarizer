@@ -1,6 +1,8 @@
 import itertools
 from operator import itemgetter
 from Queue import PriorityQueue
+import numpy as np
+from numpy import linalg as LA
 import math, os, operator
 from nltk import FreqDist
 from nltk.corpus import PlaintextCorpusReader
@@ -85,7 +87,7 @@ def get_idf(directory):
   idf_dict = dict((word, math.log(N/df_dict[word])) for word in df_dict)
   return idf_dict;    
 
-#NYT_IDF = get_idf(NYT_DOCS)
+NYT_IDF = get_idf(NYT_DOCS)
 NYT_LEN = len(get_all_files(NYT_DOCS))
 
 def get_tfidf(tf_dict, idf_dict):
@@ -170,26 +172,30 @@ def is_valid(sent, summary, dct, vector=None):
 
 ### LexRank Summarizer ###
 
-THRESHOLD = 0.008
+THRESHOLD = 0.1
 
 def build_feature_space(all_sents, tfidf_dict):
     feature_space = []
     for sent in all_sents:
         row = []
         for word in tfidf_dict.keys():
-            if word in sent:
-                row.append(tfidf_dict[word])
-            else:
-                row.append(0)
+            if word in sent: row.append(tfidf_dict[word])
+            else: row.append(0)
         feature_space.append(row)
     return feature_space
 
 def normalize_matrix(matrix):
+    #for i in range(len(matrix)):
+    #    row = matrix[i]
+    #    sum_value = sum(row)
+    #    if sum_value != 0:
+    #        matrix[i] = [(sim * 1.0 / sum_value) for sim in row]
     for i in range(len(matrix)):
-        row = matrix[i]
-        sum_value = sum(row)
+        column = [row[i] for row in matrix]
+        sum_value = sum(column)
         if sum_value != 0:
-            matrix[i] = [(sim * 1.0 /sum_value) for sim in row]
+            for row in matrix:
+                row[i] = row[i] * 1.0 /sum_value
     return matrix 
 
 def build_similarity_matrix(feature_space):
@@ -216,10 +222,39 @@ def make_graph(feature_space, all_sents):
     # return normalize_matrix(graph)
     return graph
 
+def column_value_positive(index, vectors):
+    for row in vectors:
+        if row[index] <= 0:
+            return False
+    return True
+
+def get_eigenvector(graph):
+    # print graph
+    values, vectors = LA.eig(normalize_matrix(graph))
+    max_index = np.argmax(values)
+    # print values
+    # print vectors 
+    # print 'max_index', max_index
+    if column_value_positive(max_index, vectors):
+        # print 'Using vector!!!!!!!'
+        eig_vector = []
+        for i in range(len(vectors)):
+            eig_vector.append(vectors[i][max_index])
+    else:
+        # print 'Using sum of row!!!!!'
+        eig_vector = [sum(row) for row in graph]
+    # print 'eig_vector'
+    # print eig_vector
+    return eig_vector
+
 def page_rank_iteration(graph, all_sents):
-    sums = [sum(row) for row in graph]
-    score_dict = dict(zip(all_sents, sums))
+    # sums = [sum(row) for row in graph]
+    # score_dict = dict(zip(all_sents, sums))
+    eig_vector = get_eigenvector(graph)
     # sort according to value, and get top sentences
+    score_dict = dict()
+    for i in range(len(all_sents)):
+        score_dict[all_sents[i]] = eig_vector[i]
     sorted_dict = sorted(score_dict.iteritems(), key=itemgetter(1), reverse=True)
     return [entry[0] for entry in sorted_dict]
 
@@ -250,6 +285,7 @@ def lex_sum_helper(dir_path):
 def LexRankSum(input_collection, output_folder):
     dir_list = get_sub_directories(input_collection)
     for directory in dir_list:
+#        if directory == 'dev_00':
         print directory
         # generate input and output paths
         dir_path = input_collection + "/" + directory
@@ -258,7 +294,7 @@ def LexRankSum(input_collection, output_folder):
         summary = lex_sum_helper(dir_path)
         write_to_file(output_file, summary)
     
-#LexRankSum(DEV, '../lexPageRank')
+LexRankSum(DEV, '../lexPageRank')
 
 
 def summarize(input_collection, output_folder, method):
