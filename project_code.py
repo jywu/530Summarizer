@@ -170,7 +170,7 @@ def is_valid(sent, summary, dct, vector=None):
             return False
     return True
 
-### LexRank Summarizer ###
+### LexRank Summarizer ### ROUGE-2 Recall (DEV) = 0.06668
 
 THRESHOLD = 0.1
 
