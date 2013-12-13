@@ -425,6 +425,14 @@ def count_named_entities(sentence):
   print "output = ", output
   return map(lambda tag: output.count(tag), ["<PERSON>", "<ORGANIZATION>", "<LOCATION>"])
 
-
-
+def hypernym_distance(word):
+  '''Finds shortest distance between noun senses of the word and the root hypernym'''
+  paths = []
+  for s in wn.synsets(word, pos=wn.NOUN):
+    paths.extend(s.hypernym_paths())
+  paths_greater_than_1 = filter(lambda i: i!= 1, map(len, paths))
+  if len(paths_greater_than_1) > 0:
+    return min(paths_greater_than_1)
+  else:
+    return 1
 
