@@ -3,7 +3,7 @@ from operator import itemgetter
 from Queue import PriorityQueue
 import numpy as np
 from numpy import linalg as LA
-import math, os, operator
+import math, os, operator, subprocess
 from nltk import FreqDist
 from nltk.corpus import PlaintextCorpusReader
 from nltk import word_tokenize
@@ -87,7 +87,7 @@ def get_idf(directory):
   idf_dict = dict((word, math.log(N/df_dict[word])) for word in df_dict)
   return idf_dict;    
 
-NYT_IDF = get_idf(NYT_DOCS)
+#NYT_IDF = get_idf(NYT_DOCS)
 NYT_LEN = len(get_all_files(NYT_DOCS))
 
 def get_tfidf(tf_dict, idf_dict):
@@ -294,7 +294,7 @@ def LexRankSum(input_collection, output_folder):
         summary = lex_sum_helper(dir_path)
         write_to_file(output_file, summary)
     
-LexRankSum(DEV, '../lexPageRank')
+#LexRankSum(DEV, '../lexPageRank')
 
 
 def summarize(input_collection, output_folder, method):
@@ -399,3 +399,32 @@ def update(sum_dict, sent_dict):
   '''Updates sum_dict with values from sent_dict'''
   for (word, freq) in sent_dict.items():
     sum_dict[word] = sum_dict.get(word, 0.0) + freq
+
+
+
+### Our Summarizer ###
+#features: (subject to change)
+## NER: the number of each type of named entity in the sentence
+## topic words: what proportion of / how many topic words in the entire collection are found in this sentence?
+## sentiment words: the number of each type of sentiment word in the sentence
+## sentence position in document
+## specificity: the number of words with specificity measure above threshold
+
+
+def count_named_entities(sentence):
+  '''Runs Stanford-NER to count the number of each type of named entity in the sentence'''
+  temp_file = "__tempfile__"
+  write_to_file(temp_file, sentence)
+  arg_string = "java -mx500m -cp /project/cis/nlp/tools/stanford-ner/stanford-ner.jar edu.stanford.nlp.ie.crf.CRFClassifier -loadClassifier /project/cis/nlp/tools/stanford-ner/classifiers/ner-eng-ie.crf-3-all2006-distsim.ser.gz -textFile " + temp_file + " -outputFormat inlineXML"
+  arg_list = arg_string.split(" ")
+  error_output = open("/dev/null")
+  proc = subprocess.Popen(arg_list, stdout=subprocess.PIPE, stderr=error_output)
+  (output, err) = proc.communicate()
+  error_output.close()
+  os.remove(temp_file)
+  print "output = ", output
+  return map(lambda tag: output.count(tag), ["<PERSON>", "<ORGANIZATION>", "<LOCATION>"])
+
+
+
+
