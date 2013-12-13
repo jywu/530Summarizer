@@ -11,9 +11,12 @@ from nltk.corpus import stopwords
 
 ### GLOBAL VARIABLES ###
 DEV = '/home1/c/cis530/final_project/dev_input/'
+DEV_MODELS = '/home1/c/cis530/final_project/dev_models/'
 TEST = '/home1/c/cis530/final_project/test_input/'
 NYT_DOCS = '/home1/c/cis530/final_project/nyt_docs/'
 STOP = set(stopwords.words('english'))
+SVM_MODEL = 'dev_svm_model'
+
 
 ### Loading from Files (from HW1) ###
 def get_all_files(path):
@@ -436,15 +439,16 @@ def hypernym_distance(word):
   else:
     return 1
 
-
-def write_feature_file(sentence_list, feature_file):
+def write_feature_file(sentence_list, feature_file, label_list=None):
   '''Writes SVM file containing feature vectors for sentences'''
   f = open(feature_file, 'w')
-  for sentence in sentence_list:
-    features = get_features(sentence)    
-    f.write("0") #label
-    for i in range(len(features)):
-      if features[i] != 0: f.write(" " + str(i + 1) + ":" + str(features[i]))
+  for i in range(len(sentence_list)):
+    features = get_features(sentence_list[i])
+    if not label_list: f.write("0") #label
+    else: f.write(label_list[i])
+    f.write(" qid:1")
+    for j in range(len(features)):
+      if features[j] != 0: f.write(" " + str(j + 1) + ":" + str(features[j]))
     f.write("\n")
   f.close()
       
@@ -456,22 +460,28 @@ def get_features(sentence):
   return features
 
 
-#assumes model is already trained
-def ml_summary(collection):
-  '''Uses trained classifier to extract summary'''
-  sentences = load_collection_sentences(collection)
+def get_rankings(sentences):
+  '''Gets ranking of sentences in this collection'''
   feature_file = "__temp_features"
   predict_file = "__temp_predict"
   write_feature_file(sentences, feature_file)
 
-  #TODO svm classify: writes file 
+  if not os.path.isfile(SVM_MODEL): train_svm()
+  subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_learn", feature_file, SVM_MODEL, predict_file])
+  #TODO permission denied for svmrank directory
+  
   p = open(predict_file, 'r')
   predictions = p.readlines()
   p.close()
   pq = PriorityQueue()
   for pair in zip(predictions, sentences):
     pq.put(pair)
+  return pq
 
+def ml_summary(collection):
+  '''Uses trained classifier to extract summary'''
+  sentences = load_collection_sentences(collection)
+  pq = get_rankings(sentences)
   summary = [] 
   tf_idf_dict = make_tfidf_dict(sentences)
   while summary_length(summary) <= 100 and not pq.empty():
@@ -479,3 +489,50 @@ def ml_summary(collection):
     if is_valid(next_sentence, summary, tfidf_dict):
       summary.append(next_sentence)
   return "\n".join(summary)
+
+def train_svm():
+  '''Trains SVM-Rank model using sentences rankings based under perplixity from model-summary LMs'''
+  lm_data = "__temp_srilmdata"
+  lm_file = "__temp_srilmtrain"
+  svm_data = "__temp_svmdata"
+  labels = []
+  sentences = []
+
+  model_files = get_all_files(DEV_MODELS)
+  dev_directories = get_sub_directories(DEV)
+  for dev_set in dev_directories:
+    models = filter(lambda f: f.startswith(dev_set), model_files)
+    write_model_file(models, lm_data)
+    subprocess.call(["/home1/c/cis530/hw2/srilm/ngram-count", "-text", lm_data, "-lm", lm_file])
+    for dev_doc in dev_set:
+      (sents, ppls) = get_sentences_and_ppl(DEV + dev_set + "/" + dev_doc, lm_file)
+      sentences.extend(sents)
+      labels.extend(ppl)
+  write_feature_file(sentences, svm_data,labels)
+  #TODO permission denied for svmrank directory
+  subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_learn", svm_data, SVM_MODEL])
+  os.remove(lm_data); os.remove(lm_file); os.remove(svm_data)
+  
+    
+def write_model_file(models, filename):
+  '''Writes all models to same file for SRILM processing'''
+  output = open(filename, 'w')
+  for model in models:
+    model_sents = load_file_sentences(DEV_MODELS + model)
+    for sent in sentences: output.write(" ".join(sent) + '\n')
+  output.close()
+
+def get_sentences_and_ppl(document, lm_file):
+  '''Uses LM to calculate perplexities of sentences in file; returns tuple of sentences and ppls'''
+  args = ['/home1/c/cis530/hw2/srilm/ngram', '-lm', lm_file, '-ppl', document, "-debug", "1"]
+  proc = subprocess.Popen(args, stdout=subprocess.PIPE)
+  (output,err) = proc.communicate()
+  sents = []
+  ppls = []
+  i = 0
+  while i < len(output) - 4:
+    if i % 4 == 0: sents.append(output[i].strip())
+    if i % 4 == 2: ppls.append(re.search("ppl= (\S+)", output[i]).group(1))
+    i += 1
+ return sents, ppls
+
