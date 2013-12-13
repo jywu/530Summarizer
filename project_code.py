@@ -436,3 +436,46 @@ def hypernym_distance(word):
   else:
     return 1
 
+
+def write_feature_file(sentence_list, feature_file):
+  '''Writes SVM file containing feature vectors for sentences'''
+  f = open(feature_file, 'w')
+  for sentence in sentence_list:
+    features = get_features(sentence)    
+    f.write("0") #label
+    for i in range(len(features)):
+      if features[i] != 0: f.write(" " + str(i + 1) + ":" + str(features[i]))
+    f.write("\n")
+  f.close()
+      
+    
+def get_features(sentence):
+  features = []
+  features.extend(count_named_entities(sentence))
+    #TODO add features
+  return features
+
+
+#assumes model is already trained
+def ml_summary(collection):
+  '''Uses trained classifier to extract summary'''
+  sentences = load_collection_sentences(collection)
+  feature_file = "__temp_features"
+  predict_file = "__temp_predict"
+  write_feature_file(sentences, feature_file)
+
+  #TODO svm classify: writes file 
+  p = open(predict_file, 'r')
+  predictions = p.readlines()
+  p.close()
+  pq = PriorityQueue()
+  for pair in zip(predictions, sentences):
+    pq.put(pair)
+
+  summary = [] 
+  tf_idf_dict = make_tfidf_dict(sentences)
+  while summary_length(summary) <= 100 and not pq.empty():
+    rank, next_sentence = pq.get()
+    if is_valid(next_sentence, summary, tfidf_dict):
+      summary.append(next_sentence)
+  return "\n".join(summary)
