@@ -31,7 +31,7 @@ Some system parameters are consistent for all of the summarizers.
 \item Only sentences that are between 9 and 45 words long are considered for inclusion in the summary.
 \item To reduce redundancy, sentences that exceed a certain threshold of similarity with any sentence already in the summary are not added. The exact value of the threshold differs between implementations.
 \item For TF*IDF calculations, IDF was computed from the New York Times corpus. Because this corpus does not contain every word in the test inputs, IDF calculations used add-one smoothing.
-
+\end{itemize}
 
 \section{Basic Systems}
 
@@ -45,6 +45,7 @@ DESCRIBE LEXRANK HERE
 
 \subsection{Kl Divergence System}
 The KL Summarizer selects sentences to add to the summary by greedily choosing the sentence that will minimize KL divergence between the summary and the input. For this implementation, stopwords are ignored in all calculations. Because unigram distribution of stopwords is less likely to be substantially different between the summary and the input, removing them would highlight the meaningful words in the distribution. No smoothing was performed in calculating the distributions; since KL is a sum of probability calculations, a zero term does not significantly affect the output. 
+The threshold for removing redundant sentences is set to 1, which means that sentences are not ignored on the basis of similarity to sentences already in the summary. This value was chosen based on tests with development data; one possible explanation for the result is that the KL computation takes care of redundancy issues itself, causing any further effort to be counterproductive.
 
 \subsection{Performance on Development Set}
 \vskip 0.5em
