@@ -348,7 +348,7 @@ def gen_TFIDF_summary(sentences):
   return "\n".join(summary)
 
 
-### Greedy KL Summarizer ### current ROUGE-2 = 0.09035
+### Greedy KL Summarizer ### current ROUGE-2 = 0.08899
 def KLSum(input_collection, output_folder):
   #set_redundancy(1.0)
   summarize(input_collection, output_folder, 3)
