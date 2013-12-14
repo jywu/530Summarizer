@@ -8,6 +8,7 @@ from nltk import FreqDist
 from nltk.corpus import PlaintextCorpusReader
 from nltk import word_tokenize
 from nltk.corpus import stopwords
+from nltk.corpus import wordnet as wn
 
 ### GLOBAL VARIABLES ###
 DEV = '/home1/c/cis530/final_project/dev_input/'
@@ -408,7 +409,7 @@ def update(sum_dict, sent_dict):
 ## topic words: what proportion of / how many topic words in the entire collection are found in this sentence?
 ## sentiment words: the number of each type of sentiment word in the sentence
 ## sentence position in document
-## specificity: the number of words with specificity measure above threshold
+## specificity: the number of words with high/medium/low specificity
 
 
 def count_named_entities(sentence):
@@ -425,7 +426,7 @@ def count_named_entities(sentence):
   print "output = ", output
   return map(lambda tag: output.count(tag), ["<PERSON>", "<ORGANIZATION>", "<LOCATION>"])
 
-def hypernym_distance(word):
+def hypernym_distance(word): #From HW4
   '''Finds shortest distance between noun senses of the word and the root hypernym'''
   paths = []
   for s in wn.synsets(word, pos=wn.NOUN):
@@ -435,6 +436,20 @@ def hypernym_distance(word):
     return min(paths_greater_than_1)
   else:
     return 1
+
+def count_specificities(sentence):
+  '''Counts the number of general, medium, and specific, or unspecified entities in the sentence'''
+  specs = [0, 0, 0, 0]
+  high_threshold = 8  #decided by looking at stats of dev input
+  med_threshold = 4
+  for word in word_tokenize(sentence):
+    if len(wn.synsets(word, pos=wn.NOUN)) != 0:
+      spec = hypernym_distance(word)
+      if spec == 1: specs[3] += 1
+      elif spec >  high_threshold: specs[2] += 1
+      elif spec > med_threshold: specs[1] += 1
+      else: specs[0] += 1
+  return specs
 
 def write_feature_file(sentence_list, feature_file, label_list=None):
   '''Writes SVM file containing feature vectors for sentences'''
@@ -453,6 +468,7 @@ def write_feature_file(sentence_list, feature_file, label_list=None):
 def get_features(sentence):
   features = []
   features.extend(count_named_entities(sentence))
+  features.extend(count_specificities(sentence))
     #TODO add features
   return features
 
