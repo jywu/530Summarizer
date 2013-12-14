@@ -350,7 +350,7 @@ def gen_TFIDF_summary(sentences):
 
 ### Greedy KL Summarizer ### current ROUGE-2 = 0.09035
 def KLSum(input_collection, output_folder):
-  set_redundancy(1.0)
+  #set_redundancy(1.0)
   summarize(input_collection, output_folder, 3)
 
 def gen_KL_summary(sentences):
@@ -367,11 +367,11 @@ def gen_KL_summary(sentences):
   input_probs = dict([(word, input_freqs[word] / len(all_tokens)) for word in input_freqs.keys()])
   input_tfidf = make_tfidf_dict(sentences)
 
-  while len(summary_words) <= 100 and len(tokenized) > 0:
+  while summary_length(summary) <= 100 and len(tokenized) > 0:
     ## find sentence with minimum KL
     kl_vals = []
     for i in range(0, len(tokenized)):
-      length = len(summary_words) + len(tokenized[i])
+      length = len(summary_words) + len(tokenized[i]) 
       kl_vals.append(calculate_KL(summary_freqs, sent_freqs[i], length, input_freqs))
     min_index = kl_vals.index(min(kl_vals))
     
@@ -379,7 +379,7 @@ def gen_KL_summary(sentences):
     to_add = sentences.pop(min_index)
     to_add_words = tokenized.pop(min_index)
     to_add_freqs = sent_freqs.pop(min_index)
-    if is_valid(to_add, summary, input_tfidf):  ## TODO checks divergence using frequency only (not tfidf)
+    if is_valid(to_add, summary, input_tfidf):  
       summary.append(to_add)
       summary_words.extend(to_add_words)
       update(summary_freqs, to_add_freqs)
@@ -387,8 +387,8 @@ def gen_KL_summary(sentences):
 
 
 def calculate_KL(p_sum, p_sent, length, q):
-  '''Calculates KL divergence given a list of words, frequency in P, and frequency in Q(input)'''
-  '''Caller provides two frequency dicts for P: one for the summary, and one for the sentence that is being considered or addition; this is to avoid copying the summary dict for every sentence'''
+  '''Calculates KL divergence between P (summary) and Q (input)'''
+  '''Caller provides two frequency dicts for P: one for the summary, and one for the sentence that is being considered for addition; this is to avoid copying the summary dict for every sentence'''
   total = 0.0
   words = set(p_sum.keys() + p_sent.keys())
   for word in words:
@@ -401,7 +401,7 @@ def make_unigram_dict(tokens):
   '''Create frequency distribution'''
   freq_dict = {}
   for token in tokens:
-    freq_dict[token] = freq_dict.get(token, 0) + 1.0
+    freq_dict[token] = freq_dict.get(token, 0.0) + 1.0
   return freq_dict
 def update(sum_dict, sent_dict):
   '''Updates sum_dict with values from sent_dict'''
