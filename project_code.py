@@ -309,6 +309,7 @@ def summarize(input_collection, output_folder, method):
     if (method == 1): summary = gen_TFIDF_summary(sentences)
     elif (method == 2) : summary = lex_sum_helper(input_collection + directory)
     elif (method == 3) : summary = gen_KL_summary(sentences)
+    elif (method == 4) : summary = ml_summary(sentences)
     else : summary = ""
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
@@ -341,7 +342,7 @@ def gen_TFIDF_summary(sentences):
   return "\n".join(summary)
 
 
-### Greedy KL Summarizer ### current ROUGE-2 = 0.05957
+### Greedy KL Summarizer ### current ROUGE-2 = 0.08629
 def KLSum(input_collection, output_folder):
   summarize(input_collection, output_folder, 3)
 
@@ -360,16 +361,12 @@ def gen_KL_summary(sentences):
 
   while len(summary_words) <= 100 and len(tokenized) > 0:
     ## find sentence with minimum KL
-    min_index = 0
-    length = len(summary_words) + len(tokenized[0])
-    min_kl = calculate_KL(summary_freqs, sent_freqs[min_index], length, input_probs)
-    for i in range(1, len(tokenized)):
+    kl_vals = []
+    for i in range(0, len(tokenized)):
       length = len(summary_words) + len(tokenized[i])
-      next_kl = calculate_KL(summary_freqs, sent_freqs[i], length, input_freqs)
-      if next_kl < min_kl:
-        min_index = 1
-        min_kl = next_kl
-
+      kl_vals.append(calculate_KL(summary_freqs, sent_freqs[i], length, input_freqs))
+    min_index = kl_vals.index(min(kl_vals))
+    
     ## Remove from list and add to summary if valid
     to_add = sentences.pop(min_index)
     to_add_words = tokenized.pop(min_index)
@@ -478,9 +475,8 @@ def get_rankings(sentences):
     pq.put(pair)
   return pq
 
-def ml_summary(collection):
+def ml_summary(sentences):
   '''Uses trained classifier to extract summary'''
-  sentences = load_collection_sentences(collection)
   pq = get_rankings(sentences)
   summary = [] 
   tf_idf_dict = make_tfidf_dict(sentences)
@@ -534,5 +530,5 @@ def get_sentences_and_ppl(document, lm_file):
     if i % 4 == 0: sents.append(output[i].strip())
     if i % 4 == 2: ppls.append(re.search("ppl= (\S+)", output[i]).group(1))
     i += 1
- return sents, ppls
+  return sents, ppls
 
