@@ -29,11 +29,16 @@ Some system parameters are consistent for all of the summarizers.
 \item The summarizer output is named by prefixing the name of the current subdirectory with ''sum\_''. For instance, the input collection subdirectory ''dev\_00'' would produce the summary ''sum\_dev\_00.txt''.
 \item The sentences of the input collections are always lowercased. 
 \item Only sentences that are between 9 and 45 words long are considered for inclusion in the summary.
+\item To reduce redundancy, sentences that exceed a certain threshold of similarity with any sentence already in the summary are not added. The exact value of the threshold differs between implementations.
+\item For TF*IDF calculations, IDF was computed from the New York Times corpus. Because this corpus does not contain every word in the test inputs, IDF calculations used add-one smoothing.
+
 
 \section{Basic Systems}
 
 \subsection{TF*IDF System}
-DESCRIBE TF-IDF HERE
+The TF*IDF Summarizer ranks sentences by calculating the average TF*IDF score for the words in each sentence. In this implementation, stopwords are included in the calculation, because the proportion of stopwords to content-ful words is an important aspect of the TF*IDF ranking.
+The sentence score is calculated over all word types, instead of all tokens. In tests with the development data, using types instead of tokens was found to result in a small increase in ROUGE-2 recall.
+In reducing redundancy, the best similarity threshold was found to be 0.8, which resulted in the highest ROUGE-2 recall for the development data. 
 
 \subsection{LexRank System}
 DESCRIBE LEXRANK HERE

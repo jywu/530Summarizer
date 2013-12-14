@@ -112,7 +112,7 @@ def make_tfidf_dict(sentences):
 def score_sentence_TFIDF(sentence, tfidf_dict):
   '''Computes TFIDF score of a sentence'''
   score = 0.0
-  words = word_tokenize(sentence)
+  words = set(word_tokenize(sentence))
   for word in words:
     score += tfidf_dict[word]
   return score / len(words)
@@ -320,8 +320,9 @@ def summarize(input_collection, output_folder, method):
     write_to_file(output, summary)
 
 
-### TF-IDF Summarizer ### ROUGE-2 Recall (DEV) = 0.06932
+### TF-IDF Summarizer ### ROUGE-2 Recall (DEV) = 0.07807
 def TFIDFSum(input_collection, output_folder):
+  set_redundancy(0.8)
   summarize(input_collection, output_folder, 1)
 
 def gen_TFIDF_summary(sentences):
@@ -347,8 +348,9 @@ def gen_TFIDF_summary(sentences):
   return "\n".join(summary)
 
 
-### Greedy KL Summarizer ### current ROUGE-2 = 0.08629
+### Greedy KL Summarizer ### current ROUGE-2 = 0.09035
 def KLSum(input_collection, output_folder):
+  set_redundancy(1.0)
   summarize(input_collection, output_folder, 3)
 
 def gen_KL_summary(sentences):
