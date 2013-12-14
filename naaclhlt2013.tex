@@ -44,7 +44,7 @@ In reducing redundancy, the best similarity threshold was found to be 0.8, which
 DESCRIBE LEXRANK HERE
 
 \subsection{Kl Divergence System}
-DESCRIBE KL HERE
+The KL Summarizer selects sentences to add to the summary by greedily choosing the sentence that will minimize KL divergence between the summary and the input. For this implementation, stopwords are ignored in all calculations. Because unigram distribution of stopwords is less likely to be substantially different between the summary and the input, removing them would highlight the meaningful words in the distribution. No smoothing was performed in calculating the distributions; since KL is a sum of probability calculations, a zero term does not significantly affect the output. 
 
 \subsection{Performance on Development Set}
 \vskip 0.5em
