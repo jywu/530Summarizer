@@ -8,7 +8,7 @@
 \usepackage{latexsym}
 \setlength\titlebox{6.5cm}    % Expanding the titlebox
 
-\title{Template for CIS-530/430 Final Project}
+\title{CIS 530 Final Project: Automatic Summarization Systems}
 
 \author{Jingyi Wu \\
 	    {\tt wujingyi@seas.upenn.edu}
@@ -19,12 +19,16 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-ABSTRACT TEXT GOES HERE
+For this project, we have implemented three basic summarizers: a TF*IDF summarizer, a LexRank summarizer, and a KL-divergence summarizer. In addition, we have designed a new summarizer that ranks sentences using a feature-based classifier.
 \end{abstract}
 
 \section{General Parameters}
-WE CAN DISCUSS ANY GENERAL CHOICES HERE
- (E.G. TEXT PRE-PROCESSING, THRESHOLD VALUES USED BETWEEN SYSTEMS)
+Some system parameters are consistent for all of the summarizers. 
+\begin{itemize}
+\item Each summarizer takes two parameters: an input collection with groups of documents to summarize, and the output folder in which to save the summaries.
+\item The summarizer output is named by prefixing the name of the current subdirectory with ''sum\_''. For instance, the input collection subdirectory ''dev\_00'' would produce the summary ''sum\_dev\_00.txt''.
+\item The sentences of the input collections are always lowercased. 
+\item Only sentences that are between 9 and 45 words long are considered for inclusion in the summary.
 
 \section{Basic Systems}
 

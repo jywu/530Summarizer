@@ -17,7 +17,11 @@ TEST = '/home1/c/cis530/final_project/test_input/'
 NYT_DOCS = '/home1/c/cis530/final_project/nyt_docs/'
 STOP = set(stopwords.words('english'))
 SVM_MODEL = 'dev_svm_model'
+REDUNDANCY_THRESHOLD = 0.8
 
+def set_redundancy(t):
+  global REDUNDANCY_THRESHOLD
+  REDUNDANCY_THRESHOLD = t
 
 ### Loading from Files (from HW1) ###
 def get_all_files(path):
@@ -33,7 +37,7 @@ def load_file_sentences(filename):
   f = open(filename, 'r')
   sentences = f.readlines()
   f.close()
-  return [sen.strip() for sen in sentences]  
+  return [sen.strip().lower() for sen in sentences]  
 
 def load_collection_sentences(path):
   '''Returns a list of sentences in path'''
@@ -91,7 +95,7 @@ def get_idf(directory):
   idf_dict = dict((word, math.log(N/df_dict[word])) for word in df_dict)
   return idf_dict;    
 
-#NYT_IDF = get_idf(NYT_DOCS)
+NYT_IDF = get_idf(NYT_DOCS)
 NYT_LEN = len(get_all_files(NYT_DOCS))
 
 def get_tfidf(tf_dict, idf_dict):
@@ -161,16 +165,16 @@ def vectorize(feature_space, sentence, dct):
     return vectorize_w(feature_space, list(set(word_tokenize(sentence))), dct)
 
 def is_valid(sent, summary, dct, vector=None):
+    num_words = len(word_tokenize(sent))
+    if num_words < 9 or num_words > 45: #need to determine threshold
+        return False;
     if len(summary) == 0: return True
     if vector == None: vector = create_feature_space(summary)
-    num_words = len(word_tokenize(sent))
     vector_x = vectorize(vector, sent, dct)
-    if(num_words < 9 or num_words > 45): #need to determine threshold
-        return False;
-    for sent in summary:
-        vector_y = vectorize(vector, sent, dct)
+    for sum_sent in summary:
+        vector_y = vectorize(vector, sum_sent, dct)
         sim = cosine_similarity(vector_x, vector_y)
-        if(sim > 2): #need to determine threshold
+        if sim > REDUNDANCY_THRESHOLD: #need to determine threshold
             return False
     return True
 
@@ -359,6 +363,7 @@ def gen_KL_summary(sentences):
   all_tokens = [token for sentence in tokenized for token in sentence] #flattens list
   input_freqs = make_unigram_dict(all_tokens)
   input_probs = dict([(word, input_freqs[word] / len(all_tokens)) for word in input_freqs.keys()])
+  input_tfidf = make_tfidf_dict(sentences)
 
   while len(summary_words) <= 100 and len(tokenized) > 0:
     ## find sentence with minimum KL
@@ -372,7 +377,7 @@ def gen_KL_summary(sentences):
     to_add = sentences.pop(min_index)
     to_add_words = tokenized.pop(min_index)
     to_add_freqs = sent_freqs.pop(min_index)
-    if is_valid(to_add, summary, input_freqs):  ## checks divergence using frequency only (not tfidf)
+    if is_valid(to_add, summary, input_tfidf):  ## TODO checks divergence using frequency only (not tfidf)
       summary.append(to_add)
       summary_words.extend(to_add_words)
       update(summary_freqs, to_add_freqs)
@@ -484,7 +489,7 @@ def get_rankings(sentences):
   #TODO permission denied for svmrank directory
   
   p = open(predict_file, 'r')
-  predictions = p.readlines()
+  predictions = map(lambda x: float(x.strip("\n")), p.readlines())
   p.close()
   pq = PriorityQueue()
   for pair in zip(predictions, sentences):
