@@ -51,10 +51,18 @@ The threshold for removing redundant sentences is set to 1, which means that sen
 \vskip 0.5em
 \begin{tabular}{|c|c|c|c|}
   \hline
-  System & TF*IDF & LexRank & KL Divergence \\ \hline
-  Rouge-2 Recall & *.** & *.** & *.** \\
+  System & TF*IDF & LexRank & KL  \\ \hline
+  Rouge-2 Recall & *.** & *.** & *.**** \\
   \hline
 \end{tabular}
+%\begin{tabular}{|c|c|}
+%  \hline
+%  System & Rouge-2 Recall \\ \hline
+%  TF*IDF & *.** \\ \hline
+%  LexRank & *.** \\ \hline
+%  KL Divergence & *.** \\ \hline
+%\end{tabular}
+
 
 \section{Your Summarization System}
 
@@ -63,12 +71,16 @@ The threshold for removing redundant sentences is set to 1, which means that sen
 This part shows general idea of your system. You may use flowchart, graphics or pseudo-code to describe your algorithm.
 
 \subsection{Resources \& Tools Used}
-
-What resources or tools you have used and how they are included in your implementations.
 \vskip 1em
-\noindent Example: Wordnet, Stanford NER, MPQA, TopicS.
+\noindent SRILM is used to create a language model of the dev\_model summaries. Sentences are ranked by their perplxity in the language model, to automatically generate labels for training the classifier. Sentences with lower perplexity are assumed to be more likely to be in the summary.
 \vskip 1em
-\noindent I use Stanford-Parser in order to help \dots
+\noindent WordNet is used in one of the classifier feature groups. The specificity of each word in a sentence is computed as the distance between the word and the root hypernym in WordNet. Each word is designated as specific, general, or medium according to pre-determined thresholds. The counts of each of these word types, as well as the average specificity of the words in the sentence, are used as feature values. The motivation for this feature is the idea that summaries might be more likely to contain general terms instead of specific ones, or vice versa.
+\vskip 1em
+\noindent Stanford NER is also used in a feature group, by counting the number of each type of named entity (person, organization, and location) in a sentence. The motivation for this feature is the intuition that named entities provide important detail about the topic being discussed (such as the "who, what, where" of an article). 
+\vskip 1em
+\noindent TopicS is used for another feature pertaining to the topic words in set of documents. Sentences contain topic words are likely to be discussing the general topic of an article, as opposed to a specific detail; these sentences should be more highly ranked.
+\vskip 1em
+\noindent MPQA/GenInq?? is used for a feature based on sentiment analysis. By characterizing the sentiment content of a sentence, it might be possible to gain an idea of its likelihood of occurring in a summary. For example, summaries might contain more neutral language, leaving the stronger sentiments to the more detailed descriptions in a full article. On the other hand, the sentences with strong positive and negative sentiment words may be considered more important to include in a summary.
 
 \subsection{Performance}
 

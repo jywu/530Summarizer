@@ -463,8 +463,9 @@ def hypernym_distance(word): #From HW4
     return 1
 
 def count_specificities(sentence):
-  '''Counts the number of general, medium, and specific, or unspecified entities in the sentence'''
+  '''Counts the number of general, medium, and specific, or unspecified entities in the sentence, as well as the average specificity of the non-1 words'''
   specs = [0, 0, 0, 0]
+  total_spec = 0.0
   high_threshold = 8  #decided by looking at stats of dev input
   med_threshold = 4
   for word in word_tokenize(sentence):
@@ -474,6 +475,8 @@ def count_specificities(sentence):
       elif spec >  high_threshold: specs[2] += 1
       elif spec > med_threshold: specs[1] += 1
       else: specs[0] += 1
+      if spec != 1: total += spec
+  specs.append(total/(specs[0] + specs[1] + specs[2]))
   return specs
 
 def write_feature_file(sentence_list, feature_file, label_list=None):
