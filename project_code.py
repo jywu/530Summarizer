@@ -1,3 +1,6 @@
+# Emily Boggs: emboggs@seas.upenn.edu
+# Jingyi Wu: wujingyi@seas.upenn.edu
+
 import itertools
 from operator import itemgetter
 from Queue import PriorityQueue
@@ -302,8 +305,7 @@ def LexRankSum(input_collection, output_folder):
         summary = lex_sum_helper(dir_path)
         write_to_file(output_file, summary)
     
-#LexRankSum(DEV, '../lexPageRank')
-
+# LexRankSum(DEV, '../lexPageRank')
 
 def summarize(input_collection, output_folder, method):
   if not input_collection.endswith('/'): input_collection += '/'
@@ -385,7 +387,6 @@ def gen_KL_summary(sentences):
       update(summary_freqs, to_add_freqs)
   return "\n".join(summary)
 
-
 def calculate_KL(p_sum, p_sent, length, q):
   '''Calculates KL divergence between P (summary) and Q (input)'''
   '''Caller provides two frequency dicts for P: one for the summary, and one for the sentence that is being considered for addition; this is to avoid copying the summary dict for every sentence'''
@@ -407,8 +408,6 @@ def update(sum_dict, sent_dict):
   '''Updates sum_dict with values from sent_dict'''
   for (word, freq) in sent_dict.items():
     sum_dict[word] = sum_dict.get(word, 0.0) + freq
-
-
 
 ### Our Summarizer ###
 #features: (subject to change)
@@ -479,6 +478,8 @@ def get_features(sentence):
     #TODO add features
   return features
 
+def count_sentence_lengths(sentence):
+    return len(sent_tokenize(sentence)
 
 def get_rankings(sentences):
   '''Gets ranking of sentences in this collection'''
