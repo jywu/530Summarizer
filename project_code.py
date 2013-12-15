@@ -506,7 +506,7 @@ def get_rankings(sentences):
   write_feature_file(sentences, feature_file)
 
   if not os.path.isfile(SVM_MODEL): train_svm()
-  subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_learn", feature_file, SVM_MODEL, predict_file])
+  subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_classify", feature_file, SVM_MODEL, predict_file]) 
   
   p = open(predict_file, 'r')
   predictions = map(lambda x: float(x.strip("\n")), p.readlines())
@@ -546,7 +546,7 @@ def train_svm():
       sentences.extend(sents)
       labels.extend(ppls)
   write_feature_file(sentences, svm_data,labels)
-  subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_learn", svm_data, SVM_MODEL])
+  subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_learn", "-c", "20",svm_data, SVM_MODEL]) #TODO c value?
   os.remove(lm_data); os.remove(lm_file); os.remove(svm_data)
   
     
