@@ -319,16 +319,7 @@ def lex_sum_helper(dir_path):
     return summary
 
 def LexRankSum(input_collection, output_folder):
-    dir_list = get_sub_directories(input_collection)
-    for directory in dir_list:
-#        if directory == 'dev_00':
-        print directory
-        # generate input and output paths
-        dir_path = input_collection + "/" + directory
-        output_file = output_folder + "/" + gen_output_filename(directory)
-        # create summary and write to file
-        summary = lex_sum_helper(dir_path)
-        write_to_file(output_file, summary)
+  summarize(input_collection, output_folder, 2)
     
 # LexRankSum(DEV, '../lexPageRank')
 
