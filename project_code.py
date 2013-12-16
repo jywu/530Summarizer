@@ -20,7 +20,7 @@ DEV = '/home1/c/cis530/final_project/dev_input/'
 DEV_MODELS = '/home1/c/cis530/final_project/dev_models/'
 TEST = '/home1/c/cis530/final_project/test_input/'
 NYT_DOCS = '/home1/c/cis530/final_project/nyt_docs/'
-NPQA = '/home1/c/cis530/hw3/mpqa-lexicon/subjclueslen1-HLTEMNLP05.tff'
+MPQA = '/home1/c/cis530/hw3/mpqa-lexicon/subjclueslen1-HLTEMNLP05.tff'
 POSITION_DICT = dict()
 TS_FILES = []
 STOP = set(stopwords.words('english'))
@@ -146,7 +146,7 @@ def score_sentence_TFIDF(sentence, tfidf_dict):
     score += tfidf_dict[word]
   return score / len(words)
 
-### (potentially) shared methods ###
+### other shared methods ###
 
 def summary_length(summary_list):
   '''Calculates total word length of summary, if summary is a list of sentences'''
@@ -457,19 +457,6 @@ def map_named_entities(xml_collection):
       NER_list.append(e_list)
   return NER_list
 
-#def count_named_entities(sentence):
-#  '''Runs Stanford-NER to count the number of each type of named entity in the sentence'''
-#  temp_file = "__tempfile__"
-#  write_to_file(temp_file, sentence)
-#  arg_string = "java -mx500m -cp /project/cis/nlp/tools/stanford-ner/stanford-ner.jar edu.stanford.nlp.ie.crf.CRFClassifier -loadClassifier /project/cis/nlp/tools/stanford-ner/classifiers/ner-eng-ie.crf-3-all2006-distsim.ser.gz -textFile " + temp_file + " -outputFormat inlineXML"
-#  arg_list = arg_string.split(" ")
-#  error_output = open("/dev/null")
-#  proc = subprocess.Popen(arg_list, stdout=subprocess.PIPE, stderr=error_output)
-#  (output, err) = proc.communicate()
-#  error_output.close()
-#  os.remove(temp_file)
-#  return map(lambda tag: output.count(tag), ["<PERSON>", "<ORGANIZATION>", "<LOCATION>"])
-
 #### feature: specificity ####
 def hypernym_distance(word): #From HW4
   '''Finds shortest distance between noun senses of the word and the root hypernym'''
@@ -561,7 +548,7 @@ def count_sentence_topic_words(sentence):
 #### feature: negative/positive (from hw4 modified) ####
 def get_mpqa_lexicon():
   mpqa = {}
-  with open(NPQA, 'r') as f:
+  with open(MPQA, 'r') as f:
     for line in f:
       properties = to_map(line)
       word = properties['word1']
@@ -650,7 +637,6 @@ def get_rankings(sentences):
   feature_file = "__temp_features"
   predict_file = "__temp_predict"
   write_feature_file(sentences, feature_file)
-
   if not os.path.isfile(SVM_MODEL): train_svm()
   subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_classify", feature_file, SVM_MODEL, predict_file]) 
   
@@ -721,7 +707,6 @@ def get_sentences_and_ppl(document, lm_file):
     i += 1
   return sents, ppls
 
-
 def xmlfiles_exist(input_collection):
   '''Checks that all necessary XML files from CoreNLP exist'''
   xml_dir = "coreNLP_files"
@@ -732,6 +717,7 @@ def xmlfiles_exist(input_collection):
   return True
 
 def set_up(input_collection):
+  '''Pre-processing for machine-learning summarizer'''
   ts_files = gen_ts_files(DEV)
   global MPQA_DICT
   MPQA_DICT = get_mpqa_lexicon()
