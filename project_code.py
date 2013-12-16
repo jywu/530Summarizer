@@ -512,8 +512,6 @@ def write_config_files(dev_path):
 
 def gen_ts_files(dev_path):
     config_files, ts_files = write_config_files(dev_path)
-    print config_files
-    print ts_files
     if config_files == []:
         for config_file in config_files:
             os.chdir("/home1/c/cis530/hw4/TopicWords-v2/")
@@ -573,11 +571,8 @@ def get_mpqa_features(sentence, dictionary):
 def build_sentence_position_dict(directory):
     dct = dict()
     files = get_all_files(directory)
-    print directory, files
     for f in files:
-        print f
         sents = load_file_sentences(directory +'/'+f)
-        print sents
         for i in range(len(sents)):
             if i == 0:
                 dct[sents[0]] = 3
@@ -589,6 +584,7 @@ def build_sentence_position_dict(directory):
     POSITION_DICT = dct
 
 def get_sentence_position(sentence):
+    sentence = sentence.lower()
     return [POSITION_DICT[sentence]]
 
 #### add all features, train data, generate summary ####
@@ -609,12 +605,12 @@ def write_feature_file(sentence_list, feature_file, label_list=None):
     
 def get_features(sentence):
   features = []
-  features.extend(count_named_entities(sentence))
-  features.extend(count_specificities(sentence))
+  # features.extend(count_named_entities(sentence))
+  # features.extend(count_specificities(sentence))
   features.extend(count_sentence_lengths(sentence))
   features.extend(count_sentence_topic_words(sentence))
   features.extend(get_mpqa_features(sentence, MPQA_DICT))
-  features.extend(get_sentence_position(sentence))
+  # features.extend(get_sentence_position(sentence))
     #TODO add features
   return features
 
@@ -659,10 +655,7 @@ def train_svm():
   dev_directories = get_sub_directories(DEV)
   for i in range(len(dev_directories)):
     dev_set = dev_directories[i]
-    global TOPIC_WORDS
-    TOPIC_WORDS = get_top_topic_words(ts_files[i], 20)
     print dev_set
-    build_sentence_position_dict(DEV + '/' + dev_set)
     models = filter(lambda f: f.startswith(dev_set), model_files)
     write_model_file(models, lm_data)
     subprocess.call(["/home1/c/cis530/hw2/srilm/ngram-count", "-text", lm_data, "-lm", lm_file])
@@ -716,9 +709,10 @@ def summarize(input_collection, output_folder, method):
         global TOPIC_WORDS
         TOPIC_WORDS = get_top_topic_words(ts_files[i], 20)
         build_sentence_position_dict(input_collection + directory)
+        print POSITION_DICT
         summary = ml_summary(sentences)
     else : summary = ""
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
 
-# summarize(DEV, '../ours', 4)
+summarize(DEV, '../ours', 4)
