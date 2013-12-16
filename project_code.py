@@ -731,16 +731,17 @@ def xmlfiles_exist(input_collection):
       if not os.path.isfile(xml_dir + "/" + doc + ".xml") : return False
   return True
 
+def set_up(input_collection):
+  ts_files = gen_ts_files(DEV)
+  global MPQA_DICT
+  MPQA_DICT = get_mpqa_lexicon()
+  if not xmlfiles_exist(input_collection):
+    make_corenlp_files(input_collection)
+
 def summarize(input_collection, output_folder, method):
   if not input_collection.endswith('/'): input_collection += '/'
   if not output_folder.endswith('/'): output_folder += '/'
-  # preprocess for ml_summary
-  if method == 4:
-    ts_files = gen_ts_files(DEV)
-    global MPQA_DICT 
-    MPQA_DICT = get_mpqa_lexicon()
-    if not xmlfiles_exist(input_collection):
-      make_corenlp_files(input_collection)
+  if method == 4: set_up(input_collection)
   dir_list = get_sub_directories(input_collection)
   for i in range(len(dir_list)):
     directory = dir_list[i]
