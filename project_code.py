@@ -6,7 +6,7 @@ from operator import itemgetter
 from Queue import PriorityQueue
 import numpy as np
 from numpy import linalg as LA
-import math, os, operator, subprocess
+import math, os, operator, subprocess, re
 from nltk import FreqDist
 from nltk.corpus import PlaintextCorpusReader
 from nltk import word_tokenize
@@ -102,8 +102,28 @@ def get_idf(directory):
   idf_dict = dict((word, math.log(N/df_dict[word])) for word in df_dict)
   return idf_dict;    
 
-# NYT_IDF = get_idf(NYT_DOCS)
-# NYT_LEN = len(get_all_files(NYT_DOCS))
+def write_idf_to_file(idf_dict, idf_file):
+  '''Writes IDF data to file in format readable by read_idf_file'''
+  f = open(idf_file, 'w')
+  for (word, val) in idf_dict.items():
+    f.write(word + "\t" + str(val) + "\n")
+  f.close()
+
+def read_idf_file(idf_file):
+  '''Reads saved IDF information from file'''
+  f = open(idf_file, 'r')
+  idf_dict = {}
+  for line in f.readlines():
+    pair = line.strip("\n").split("\t")
+    idf_dict[pair[0]] = float(pair[1])
+  f.close()
+  return idf_dict
+    
+if os.path.isfile("nyt_idf.data"):
+  NYT_IDF = read_idf_file("nyt_idf.data")
+else:
+  NYT_IDF = get_idf(NYT_DOCS)
+NYT_LEN = len(get_all_files(NYT_DOCS))
 
 def get_tfidf(tf_dict, idf_dict):
   '''Creates dictionary of words mapped to TF-IDF values'''
@@ -123,7 +143,6 @@ def score_sentence_TFIDF(sentence, tfidf_dict):
   for word in words:
     score += tfidf_dict[word]
   return score / len(words)
-    
 
 ### (potentially) shared methods ###
 
@@ -418,7 +437,6 @@ def count_named_entities(sentence):
   (output, err) = proc.communicate()
   error_output.close()
   os.remove(temp_file)
-  #print "output = ", output
   return map(lambda tag: output.count(tag), ["<PERSON>", "<ORGANIZATION>", "<LOCATION>"])
 
 def hypernym_distance(word): #From HW4
@@ -434,8 +452,9 @@ def hypernym_distance(word): #From HW4
 
 #### feature: specificity ####
 def count_specificities(sentence):
-  '''Counts the number of general, medium, and specific, or unspecified entities in the sentence'''
+  '''Counts the number of general, medium, and specific, or unspecified entities in the sentence, as well as the average specificity of the non-1 words'''
   specs = [0, 0, 0, 0]
+  total_spec = 0.0
   high_threshold = 8  #decided by looking at stats of dev input
   med_threshold = 4
   for word in word_tokenize(sentence):
@@ -445,6 +464,8 @@ def count_specificities(sentence):
       elif spec >  high_threshold: specs[2] += 1
       elif spec > med_threshold: specs[1] += 1
       else: specs[0] += 1
+      if spec != 1: total += spec
+  specs.append(total/(specs[0] + specs[1] + specs[2]))
   return specs
 
 #### feature: sentence length ####
@@ -575,6 +596,7 @@ def write_feature_file(sentence_list, feature_file, label_list=None):
   '''Writes SVM file containing feature vectors for sentences'''
   f = open(feature_file, 'w')
   for i in range(len(sentence_list)):
+    print "writing to feature file"
     features = get_features(sentence_list[i])
     if not label_list: f.write("0") #label
     else: f.write(label_list[i])
@@ -603,9 +625,8 @@ def get_rankings(sentences):
   write_feature_file(sentences, feature_file)
 
   if not os.path.isfile(SVM_MODEL): train_svm()
-  subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_learn", feature_file, SVM_MODEL, predict_file])
-  print "trained!!!!!!"
-  #TODO permission denied for svmrank directory
+  subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_classify", feature_file, SVM_MODEL, predict_file]) 
+  
   p = open(predict_file, 'r')
   predictions = map(lambda x: float(x.strip("\n")), p.readlines())
   p.close()
@@ -645,15 +666,13 @@ def train_svm():
     models = filter(lambda f: f.startswith(dev_set), model_files)
     write_model_file(models, lm_data)
     subprocess.call(["/home1/c/cis530/hw2/srilm/ngram-count", "-text", lm_data, "-lm", lm_file])
-    for dev_doc in dev_set:
+    for dev_doc in get_all_files(DEV + dev_set):
       (sents, ppls) = get_sentences_and_ppl(DEV + dev_set + "/" + dev_doc, lm_file)
       sentences.extend(sents)
-      labels.extend(ppl)
-    write_feature_file(sentences, svm_data, labels)
-    #TODO permission denied for svmrank directory
-    subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_learn", svm_data, SVM_MODEL])
-    os.remove(lm_data); os.remove(lm_file); os.remove(svm_data)
-  
+      labels.extend(ppls)
+  write_feature_file(sentences, svm_data,labels)
+  subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_learn", "-c", "20",svm_data, SVM_MODEL]) #TODO c value?
+  os.remove(lm_data); os.remove(lm_file); os.remove(svm_data)
     
 def write_model_file(models, filename):
   '''Writes all models to same file for SRILM processing'''
@@ -668,12 +687,13 @@ def get_sentences_and_ppl(document, lm_file):
   args = ['/home1/c/cis530/hw2/srilm/ngram', '-lm', lm_file, '-ppl', document, "-debug", "1"]
   proc = subprocess.Popen(args, stdout=subprocess.PIPE)
   (output,err) = proc.communicate()
+  output_lines = output.split("\n")
   sents = []
   ppls = []
   i = 0
-  while i < len(output) - 4:
-    if i % 4 == 0: sents.append(output[i].strip())
-    if i % 4 == 2: ppls.append(re.search("ppl= (\S+)", output[i]).group(1))
+  while i < len(output_lines) - 4:
+    if i % 4 == 0: sents.append(output_lines[i].strip())
+    if i % 4 == 2: ppls.append(re.search("ppl= (\S+)", output_lines[i]).group(1))
     i += 1
   return sents, ppls
 
