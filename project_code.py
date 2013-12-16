@@ -18,9 +18,13 @@ DEV = '/home1/c/cis530/final_project/dev_input/'
 DEV_MODELS = '/home1/c/cis530/final_project/dev_models/'
 TEST = '/home1/c/cis530/final_project/test_input/'
 NYT_DOCS = '/home1/c/cis530/final_project/nyt_docs/'
+NPQA = '/home1/c/cis530/hw3/mpqa-lexicon/subjclueslen1-HLTEMNLP05.tff'
+POSITION_DICT = dict()
+TS_FILES = []
 STOP = set(stopwords.words('english'))
 SVM_MODEL = 'dev_svm_model'
 REDUNDANCY_THRESHOLD = 0.8
+CURRENT_DIR = os.getcwd()
 
 def set_redundancy(t):
   global REDUNDANCY_THRESHOLD
@@ -98,8 +102,8 @@ def get_idf(directory):
   idf_dict = dict((word, math.log(N/df_dict[word])) for word in df_dict)
   return idf_dict;    
 
-NYT_IDF = get_idf(NYT_DOCS)
-NYT_LEN = len(get_all_files(NYT_DOCS))
+# NYT_IDF = get_idf(NYT_DOCS)
+# NYT_LEN = len(get_all_files(NYT_DOCS))
 
 def get_tfidf(tf_dict, idf_dict):
   '''Creates dictionary of words mapped to TF-IDF values'''
@@ -307,21 +311,6 @@ def LexRankSum(input_collection, output_folder):
     
 # LexRankSum(DEV, '../lexPageRank')
 
-def summarize(input_collection, output_folder, method):
-  if not input_collection.endswith('/'): input_collection += '/'
-  if not output_folder.endswith('/'): output_folder += '/'
-  dir_list = get_sub_directories(input_collection)
-  for directory in dir_list:
-    sentences = load_collection_sentences(input_collection + directory)
-    if (method == 1): summary = gen_TFIDF_summary(sentences)
-    elif (method == 2) : summary = lex_sum_helper(input_collection + directory)
-    elif (method == 3) : summary = gen_KL_summary(sentences)
-    elif (method == 4) : summary = ml_summary(sentences)
-    else : summary = ""
-    output = output_folder + gen_output_filename(directory)
-    write_to_file(output, summary)
-
-
 ### TF-IDF Summarizer ### ROUGE-2 Recall (DEV) = 0.07807
 def TFIDFSum(input_collection, output_folder):
   set_redundancy(0.8)
@@ -417,7 +406,7 @@ def update(sum_dict, sent_dict):
 ## sentence position in document
 ## specificity: the number of words with high/medium/low specificity
 
-
+#### feature: NER ####
 def count_named_entities(sentence):
   '''Runs Stanford-NER to count the number of each type of named entity in the sentence'''
   temp_file = "__tempfile__"
@@ -429,7 +418,7 @@ def count_named_entities(sentence):
   (output, err) = proc.communicate()
   error_output.close()
   os.remove(temp_file)
-  print "output = ", output
+  #print "output = ", output
   return map(lambda tag: output.count(tag), ["<PERSON>", "<ORGANIZATION>", "<LOCATION>"])
 
 def hypernym_distance(word): #From HW4
@@ -443,6 +432,7 @@ def hypernym_distance(word): #From HW4
   else:
     return 1
 
+#### feature: specificity ####
 def count_specificities(sentence):
   '''Counts the number of general, medium, and specific, or unspecified entities in the sentence'''
   specs = [0, 0, 0, 0]
@@ -457,6 +447,130 @@ def count_specificities(sentence):
       else: specs[0] += 1
   return specs
 
+#### feature: sentence length ####
+def count_sentence_lengths(sentence):
+    return [len(word_tokenize(sentence))]
+
+#### feature: topic words ####
+def load_topic_words(topic_file):
+    dct = {}
+    f = open(topic_file, 'r')
+    content = f.read()
+    f.close()
+    lines = content.split('\n')
+    for line in lines:
+        tokens = line.split()
+        if(tokens != []):
+            dct[tokens[0]] = float(tokens[1])
+    return dct
+
+def get_top_n_topic_words(topic_words_dict, n):
+    sorted_dict = sorted(topic_words_dict.iteritems(), key=lambda item: -item[1])
+    sorted_list = [ x[0] for x in sorted_dict[:n] ]
+    return sorted_list
+
+def write_config_files(dev_path):
+  dirs = get_sub_directories(dev_path)
+  ts_files = []
+  config_files = []
+  for directory in dirs:
+    ts_file = CURRENT_DIR + '/' + directory + '.ts'
+    if os.path.exists(ts_file):
+        config_file = CURRENT_DIR + '/config_' + directory
+        content = 'stopFilePath = stoplist-smart-sys.txt\n'
+        content += 'performStemming = N\n'
+        content += 'backgroundCorpusFreqCounts = bgCounts-Giga.txt\n'
+        content += 'topicWordCutoff = 0.1\n'
+        content += 'inputDir = ' + dev_path + '/' + directory + '\n'
+        content += 'outputFile = ' + ts_file + '\n'
+        with open(config_file, 'wa') as f:
+            f.write(content)
+        config_files.append(config_file)
+    ts_files.append(ts_file)
+  return config_files, ts_files  
+
+def gen_ts_files(dev_path):
+    config_files, ts_files = write_config_files(dev_path)
+    print config_files
+    print ts_files
+    if config_files == []:
+        for config_file in config_files:
+            os.chdir("/home1/c/cis530/hw4/TopicWords-v2/")
+            os.system("java -Xmx1000m TopicSignatures " + config_file)
+    return ts_files 
+
+def get_top_topic_words(ts_file, n):
+    dct = load_topic_words(ts_file)
+    return  get_top_n_topic_words(dct, n)
+
+def count_sentence_topic_words(sentence):
+    words = word_tokenize(sentence)
+    intersect = set(words).intersection(set(TOPIC_WORDS))
+    return [len(intersect)]
+
+#### feature: negative/positive (from hw4 modified) ####
+def get_mpqa_lexicon():
+  mpqa = {}
+  with open(NPQA, 'r') as f:
+    for line in f:
+      properties = to_map(line)
+      word = properties['word1']
+      subj_type = properties['type']
+      polarity = properties['priorpolarity']
+      tuples = mpqa.get(word, [])
+      tuples.append((subj_type, polarity))
+      mpqa[word] = tuples
+  return mpqa
+
+def to_map(line):
+  properties = {}
+  tokens = line.split()
+  for token in tokens:
+    try:
+      key, value = token.split('=')
+    except ValueError:
+      continue
+    properties[key] = value
+  return properties
+
+def get_mpqa_features(sentence, dictionary):
+  words = word_tokenize(sentence)
+  counts = {}
+  for word in words:
+    polarities = dictionary.get(word)
+    if polarities == None:
+      continue
+    for polarity in polarities:
+      counts[polarity[1]] = counts.get(polarity[1], 0) + 1
+  return [
+  counts.get('positive', 0),
+  counts.get('negative', 0),
+  counts.get('neutral', 0)
+  ]
+
+#### feature: sentence position ####
+def build_sentence_position_dict(directory):
+    dct = dict()
+    files = get_all_files(directory)
+    print directory, files
+    for f in files:
+        print f
+        sents = load_file_sentences(directory +'/'+f)
+        print sents
+        for i in range(len(sents)):
+            if i == 0:
+                dct[sents[0]] = 3
+            elif i == 1:
+                dct[sents[1]] = 1
+            else:
+                dct[sents[i]] = 0
+    global POSITION_DICT
+    POSITION_DICT = dct
+
+def get_sentence_position(sentence):
+    return [POSITION_DICT[sentence]]
+
+#### add all features, train data, generate summary ####
 def write_feature_file(sentence_list, feature_file, label_list=None):
   '''Writes SVM file containing feature vectors for sentences'''
   f = open(feature_file, 'w')
@@ -475,11 +589,12 @@ def get_features(sentence):
   features = []
   features.extend(count_named_entities(sentence))
   features.extend(count_specificities(sentence))
+  features.extend(count_sentence_lengths(sentence))
+  features.extend(count_sentence_topic_words(sentence))
+  features.extend(get_mpqa_features(sentence, MPQA_DICT))
+  features.extend(get_sentence_position(sentence))
     #TODO add features
   return features
-
-def count_sentence_lengths(sentence):
-    return len(sent_tokenize(sentence)
 
 def get_rankings(sentences):
   '''Gets ranking of sentences in this collection'''
@@ -489,8 +604,8 @@ def get_rankings(sentences):
 
   if not os.path.isfile(SVM_MODEL): train_svm()
   subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_learn", feature_file, SVM_MODEL, predict_file])
+  print "trained!!!!!!"
   #TODO permission denied for svmrank directory
-  
   p = open(predict_file, 'r')
   predictions = map(lambda x: float(x.strip("\n")), p.readlines())
   p.close()
@@ -519,8 +634,14 @@ def train_svm():
   sentences = []
 
   model_files = get_all_files(DEV_MODELS)
+  ts_files = gen_ts_files(DEV)
   dev_directories = get_sub_directories(DEV)
-  for dev_set in dev_directories:
+  for i in range(len(dev_directories)):
+    dev_set = dev_directories[i]
+    global TOPIC_WORDS
+    TOPIC_WORDS = get_top_topic_words(ts_files[i], 20)
+    print dev_set
+    build_sentence_position_dict(DEV + '/' + dev_set)
     models = filter(lambda f: f.startswith(dev_set), model_files)
     write_model_file(models, lm_data)
     subprocess.call(["/home1/c/cis530/hw2/srilm/ngram-count", "-text", lm_data, "-lm", lm_file])
@@ -528,10 +649,10 @@ def train_svm():
       (sents, ppls) = get_sentences_and_ppl(DEV + dev_set + "/" + dev_doc, lm_file)
       sentences.extend(sents)
       labels.extend(ppl)
-  write_feature_file(sentences, svm_data,labels)
-  #TODO permission denied for svmrank directory
-  subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_learn", svm_data, SVM_MODEL])
-  os.remove(lm_data); os.remove(lm_file); os.remove(svm_data)
+    write_feature_file(sentences, svm_data, labels)
+    #TODO permission denied for svmrank directory
+    subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_learn", svm_data, SVM_MODEL])
+    os.remove(lm_data); os.remove(lm_file); os.remove(svm_data)
   
     
 def write_model_file(models, filename):
@@ -539,7 +660,7 @@ def write_model_file(models, filename):
   output = open(filename, 'w')
   for model in models:
     model_sents = load_file_sentences(DEV_MODELS + model)
-    for sent in sentences: output.write(" ".join(sent) + '\n')
+    for sent in model_sents: output.write(" ".join(sent) + '\n')
   output.close()
 
 def get_sentences_and_ppl(document, lm_file):
@@ -556,3 +677,28 @@ def get_sentences_and_ppl(document, lm_file):
     i += 1
   return sents, ppls
 
+def summarize(input_collection, output_folder, method):
+  if not input_collection.endswith('/'): input_collection += '/'
+  if not output_folder.endswith('/'): output_folder += '/'
+  # preprocess for ml_summary
+  if method == 4:
+    ts_files = gen_ts_files(DEV)
+    global MPQA_DICT 
+    MPQA_DICT = get_mpqa_lexicon()
+  dir_list = get_sub_directories(input_collection)
+  for i in range(len(dir_list)):
+    directory = dir_list[i]
+    sentences = load_collection_sentences(input_collection + directory)
+    if (method == 1): summary = gen_TFIDF_summary(sentences)
+    elif (method == 2) : summary = lex_sum_helper(input_collection + directory)
+    elif (method == 3) : summary = gen_KL_summary(sentences)
+    elif (method == 4) : 
+        global TOPIC_WORDS
+        TOPIC_WORDS = get_top_topic_words(ts_files[i], 20)
+        build_sentence_position_dict(input_collection + directory)
+        summary = ml_summary(sentences)
+    else : summary = ""
+    output = output_folder + gen_output_filename(directory)
+    write_to_file(output, summary)
+
+# summarize(DEV, '../ours', 4)
