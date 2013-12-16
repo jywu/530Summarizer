@@ -7,11 +7,13 @@ from Queue import PriorityQueue
 import numpy as np
 from numpy import linalg as LA
 import math, os, operator, subprocess, re
+import xml.etree.ElementTree as XMLTree
 from nltk import FreqDist
 from nltk.corpus import PlaintextCorpusReader
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 from nltk.corpus import wordnet as wn
+
 
 ### GLOBAL VARIABLES ###
 DEV = '/home1/c/cis530/final_project/dev_input/'
@@ -420,25 +422,55 @@ def update(sum_dict, sent_dict):
 ### Our Summarizer ###
 #features: (subject to change)
 ## NER: the number of each type of named entity in the sentence
-## topic words: what proportion of / how many topic words in the entire collection are found in this sentence?
+## topic words: how many topic words in the entire collection are found in the sentence
 ## sentiment words: the number of each type of sentiment word in the sentence
 ## sentence position in document
 ## specificity: the number of words with high/medium/low specificity
 
 #### feature: NER ####
-def count_named_entities(sentence):
-  '''Runs Stanford-NER to count the number of each type of named entity in the sentence'''
-  temp_file = "__tempfile__"
-  write_to_file(temp_file, sentence)
-  arg_string = "java -mx500m -cp /project/cis/nlp/tools/stanford-ner/stanford-ner.jar edu.stanford.nlp.ie.crf.CRFClassifier -loadClassifier /project/cis/nlp/tools/stanford-ner/classifiers/ner-eng-ie.crf-3-all2006-distsim.ser.gz -textFile " + temp_file + " -outputFormat inlineXML"
-  arg_list = arg_string.split(" ")
-  error_output = open("/dev/null")
-  proc = subprocess.Popen(arg_list, stdout=subprocess.PIPE, stderr=error_output)
-  (output, err) = proc.communicate()
-  error_output.close()
-  os.remove(temp_file)
-  return map(lambda tag: output.count(tag), ["<PERSON>", "<ORGANIZATION>", "<LOCATION>"])
+def make_corenlp_files(input_collection):
+  filelist = "__temp_nlpfiles"
+  f = open("filelist", 'w')
+  for dr in get_sub_directories(input_collection):
+    for doc in get_all_files(dr):
+      f.write(input_collection + dr + "/" + doc + "\n")
+  f.close()
+  os.mkdir("coreNLP_files")
+  
+  fn_call = 'java -cp /home1/c/cis530/hw3/corenlp/stanford-corenlp-2012-07-09/stanford-corenlp-2012-07-09.jar:/home1/c/cis530/hw3/corenlp/stanford-corenlp-2012-07-09/stanford-corenlp-2012-07-06-models.jar:/home1/c/cis530/hw3/corenlp/stanford-corenlp-2012-07-09/xom.jar:/home1/c/cis530/hw3/corenlp/stanford-corenlp-2012-07-09/joda-time.jar -Xmx3g edu.stanford.nlp.pipeline.StanfordCoreNLP -annotators tokenize,ssplit,pos,lemma,ner,parse -filelist FLIST -outputDirectory OPDIR'
+  args = fn_call.split(" ")
+  args[8] = filelist
+  args[10] = output_dir
+  subprocess.call(args)
+  os.remove(filelist)
 
+def map_named_entities(xml_collection):
+  '''Returns list of lists of NER results'''
+  NER_list = []
+  entity_types = ['ORGANIZATION', 'PERSON', 'LOCATION', 'MONEY', 'DATE']
+  for xml_file in get_all_files(xml_collection):
+    root = XMLTree.parse(xml_collection + xml_file).getroot()
+    for sent in root.iter("sentence"):
+      e_list = [0] * 5
+      for ner in sent.iter('NER'):
+        if ner.text in entity_types: e_list[entity_types.index(ner.text)] += 1
+      NER_list.append(e_list)
+  return NER_list
+
+#def count_named_entities(sentence):
+#  '''Runs Stanford-NER to count the number of each type of named entity in the sentence'''
+#  temp_file = "__tempfile__"
+#  write_to_file(temp_file, sentence)
+#  arg_string = "java -mx500m -cp /project/cis/nlp/tools/stanford-ner/stanford-ner.jar edu.stanford.nlp.ie.crf.CRFClassifier -loadClassifier /project/cis/nlp/tools/stanford-ner/classifiers/ner-eng-ie.crf-3-all2006-distsim.ser.gz -textFile " + temp_file + " -outputFormat inlineXML"
+#  arg_list = arg_string.split(" ")
+#  error_output = open("/dev/null")
+#  proc = subprocess.Popen(arg_list, stdout=subprocess.PIPE, stderr=error_output)
+#  (output, err) = proc.communicate()
+#  error_output.close()
+#  os.remove(temp_file)
+#  return map(lambda tag: output.count(tag), ["<PERSON>", "<ORGANIZATION>", "<LOCATION>"])
+
+#### feature: specificity ####
 def hypernym_distance(word): #From HW4
   '''Finds shortest distance between noun senses of the word and the root hypernym'''
   paths = []
@@ -450,7 +482,6 @@ def hypernym_distance(word): #From HW4
   else:
     return 1
 
-#### feature: specificity ####
 def count_specificities(sentence):
   '''Counts the number of general, medium, and specific, or unspecified entities in the sentence, as well as the average specificity of the non-1 words'''
   specs = [0, 0, 0, 0]
@@ -590,10 +621,11 @@ def get_sentence_position(sentence):
 #### add all features, train data, generate summary ####
 def write_feature_file(sentence_list, feature_file, label_list=None):
   '''Writes SVM file containing feature vectors for sentences'''
+  ner_features = map_named_entities("coreNLP_files")
   f = open(feature_file, 'w')
   for i in range(len(sentence_list)):
     print "writing to feature file"
-    features = get_features(sentence_list[i])
+    features = get_features(sentence_list[i]).append(ner_features[i])
     if not label_list: f.write("0") #label
     else: f.write(label_list[i])
     f.write(" qid:1")
@@ -605,7 +637,6 @@ def write_feature_file(sentence_list, feature_file, label_list=None):
     
 def get_features(sentence):
   features = []
-  # features.extend(count_named_entities(sentence))
   # features.extend(count_specificities(sentence))
   features.extend(count_sentence_lengths(sentence))
   features.extend(count_sentence_topic_words(sentence))
@@ -690,6 +721,16 @@ def get_sentences_and_ppl(document, lm_file):
     i += 1
   return sents, ppls
 
+
+def xmlfiles_exist(input_collection):
+  '''Checks that all necessary XML files from CoreNLP exist'''
+  xml_dir = "coreNLP_files"
+  if not os.path.isdir(xml_dir): return False
+  for dr in get_sub_directories(input_collection):
+    for doc in get_all_files(input_collection + dr):
+      if not os.path.isfile(xml_dir + "/" + doc + ".xml") : return False
+  return True
+
 def summarize(input_collection, output_folder, method):
   if not input_collection.endswith('/'): input_collection += '/'
   if not output_folder.endswith('/'): output_folder += '/'
@@ -698,6 +739,8 @@ def summarize(input_collection, output_folder, method):
     ts_files = gen_ts_files(DEV)
     global MPQA_DICT 
     MPQA_DICT = get_mpqa_lexicon()
+    if not xmlfiles_exist(input_collection):
+      make_corenlp_files(input_collection)
   dir_list = get_sub_directories(input_collection)
   for i in range(len(dir_list)):
     directory = dir_list[i]
@@ -715,4 +758,4 @@ def summarize(input_collection, output_folder, method):
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
 
-summarize(DEV, '../ours', 4)
+#summarize(DEV, '../ours', 4)
