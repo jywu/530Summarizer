@@ -7,7 +7,6 @@ from Queue import PriorityQueue
 import numpy as np
 from numpy import linalg as LA
 import math, os, operator, subprocess, re
-import xml.etree.ElementTree as XMLTree
 from nltk import FreqDist
 from nltk.corpus import PlaintextCorpusReader
 from nltk import word_tokenize
@@ -20,13 +19,12 @@ DEV = '/home1/c/cis530/final_project/dev_input/'
 DEV_MODELS = '/home1/c/cis530/final_project/dev_models/'
 TEST = '/home1/c/cis530/final_project/test_input/'
 NYT_DOCS = '/home1/c/cis530/final_project/nyt_docs/'
-MPQA = '/home1/c/cis530/hw3/mpqa-lexicon/subjclueslen1-HLTEMNLP05.tff'
 POSITION_DICT = dict()
 TS_FILES = []
 STOP = set(stopwords.words('english'))
-SVM_MODEL = 'dev_svm_model'
 REDUNDANCY_THRESHOLD = 0.8
-CURRENT_DIR = os.getcwd()
+CURRENT_DIR = os.getcwd() + "/"
+TW_DIR = "topicwords/"
 
 def set_redundancy(t):
   global REDUNDANCY_THRESHOLD
@@ -418,37 +416,6 @@ def update(sum_dict, sent_dict):
 ## sentence position in document
 ## specificity: the number of words with high/medium/low specificity
 
-#### feature: NER ####
-def make_corenlp_files(input_collection):
-  filelist = "__temp_nlpfiles"
-  f = open("filelist", 'w')
-  for dr in get_sub_directories(input_collection):
-    for doc in get_all_files(dr):
-      f.write(input_collection + dr + "/" + doc + "\n")
-  f.close()
-  os.mkdir("coreNLP_files")
-  
-  fn_call = 'java -cp /home1/c/cis530/hw3/corenlp/stanford-corenlp-2012-07-09/stanford-corenlp-2012-07-09.jar:/home1/c/cis530/hw3/corenlp/stanford-corenlp-2012-07-09/stanford-corenlp-2012-07-06-models.jar:/home1/c/cis530/hw3/corenlp/stanford-corenlp-2012-07-09/xom.jar:/home1/c/cis530/hw3/corenlp/stanford-corenlp-2012-07-09/joda-time.jar -Xmx3g edu.stanford.nlp.pipeline.StanfordCoreNLP -annotators tokenize,ssplit,pos,lemma,ner,parse -filelist FLIST -outputDirectory OPDIR'
-  args = fn_call.split(" ")
-  args[8] = filelist
-  args[10] = output_dir
-  subprocess.call(args)
-  os.remove(filelist)
-
-def map_named_entities(xml_collection):
-  '''Returns list of lists of NER results'''
-  NER_list = []
-  entity_types = ['ORGANIZATION', 'PERSON', 'LOCATION', 'MONEY', 'DATE']
-  for xml_file in get_all_files(xml_collection):
-    root = XMLTree.parse(xml_collection + xml_file).getroot()
-    for sent in root.iter("sentence"):
-      e_list = [0] * 5
-      for ner in sent.iter('NER'):
-        if ner.text in entity_types: e_list[entity_types.index(ner.text)] += 1
-      NER_list.append(e_list)
-  return NER_list
-
-#### feature: specificity ####
 def hypernym_distance(word): #From HW4
   '''Finds shortest distance between noun senses of the word and the root hypernym'''
   paths = []
@@ -473,13 +440,12 @@ def count_specificities(sentence):
       elif spec >  high_threshold: specs[2] += 1
       elif spec > med_threshold: specs[1] += 1
       else: specs[0] += 1
-      if spec != 1: total += spec
-  specs.append(total/(specs[0] + specs[1] + specs[2]))
+      if spec != 1: total_spec += spec
+  div = specs[0] + specs[1] + specs[2]
+  if div == 0: specs.append(0)
+  else: specs.append(total_spec/div)
   return specs
 
-#### feature: sentence length ####
-def count_sentence_lengths(sentence):
-    return [len(word_tokenize(sentence))]
 
 #### feature: topic words ####
 def load_topic_words(topic_file):
@@ -503,15 +469,16 @@ def write_config_files(dev_path):
   dirs = get_sub_directories(dev_path)
   ts_files = []
   config_files = []
+  if not os.path.isdir(TW_DIR): os.mkdir(TW_DIR)
   for directory in dirs:
-    ts_file = CURRENT_DIR + '/' + directory + '.ts'
-    if os.path.exists(ts_file):
-        config_file = CURRENT_DIR + '/config_' + directory
+    ts_file = CURRENT_DIR + TW_DIR + directory + '.ts'
+    if not os.path.exists(ts_file):
+        config_file = CURRENT_DIR + TW_DIR + 'config_' + directory
         content = 'stopFilePath = stoplist-smart-sys.txt\n'
         content += 'performStemming = N\n'
         content += 'backgroundCorpusFreqCounts = bgCounts-Giga.txt\n'
         content += 'topicWordCutoff = 0.1\n'
-        content += 'inputDir = ' + dev_path + '/' + directory + '\n'
+        content += 'inputDir = ' + dev_path + directory + '\n'
         content += 'outputFile = ' + ts_file + '\n'
         with open(config_file, 'wa') as f:
             f.write(content)
@@ -521,10 +488,10 @@ def write_config_files(dev_path):
 
 def gen_ts_files(dev_path):
     config_files, ts_files = write_config_files(dev_path)
-    if config_files == []:
-        for config_file in config_files:
-            os.chdir("/home1/c/cis530/hw4/TopicWords-v2/")
-            os.system("java -Xmx1000m TopicSignatures " + config_file)
+    os.chdir("/home1/c/cis530/hw4/TopicWords-v2/")
+    for config_file in config_files:
+        os.system("java -Xmx1000m TopicSignatures " + config_file)
+    os.chdir(CURRENT_DIR)
     return ts_files 
 
 def get_top_topic_words(ts_file, n):
@@ -536,45 +503,6 @@ def count_sentence_topic_words(sentence):
     intersect = set(words).intersection(set(TOPIC_WORDS))
     return [len(intersect)]
 
-#### feature: negative/positive (from hw4 modified) ####
-def get_mpqa_lexicon():
-  mpqa = {}
-  with open(MPQA, 'r') as f:
-    for line in f:
-      properties = to_map(line)
-      word = properties['word1']
-      subj_type = properties['type']
-      polarity = properties['priorpolarity']
-      tuples = mpqa.get(word, [])
-      tuples.append((subj_type, polarity))
-      mpqa[word] = tuples
-  return mpqa
-
-def to_map(line):
-  properties = {}
-  tokens = line.split()
-  for token in tokens:
-    try:
-      key, value = token.split('=')
-    except ValueError:
-      continue
-    properties[key] = value
-  return properties
-
-def get_mpqa_features(sentence, dictionary):
-  words = word_tokenize(sentence)
-  counts = {}
-  for word in words:
-    polarities = dictionary.get(word)
-    if polarities == None:
-      continue
-    for polarity in polarities:
-      counts[polarity[1]] = counts.get(polarity[1], 0) + 1
-  return [
-  counts.get('positive', 0),
-  counts.get('negative', 0),
-  counts.get('neutral', 0)
-  ]
 
 #### feature: sentence position ####
 def build_sentence_position_dict(directory):
@@ -596,129 +524,34 @@ def get_sentence_position(sentence):
     sentence = sentence.lower()
     return [POSITION_DICT[sentence]]
 
-#### add all features, train data, generate summary ####
-def write_feature_file(sentence_list, feature_file, label_list=None):
-  '''Writes SVM file containing feature vectors for sentences'''
-  ner_features = map_named_entities("coreNLP_files")
-  f = open(feature_file, 'w')
-  for i in range(len(sentence_list)):
-    print "writing to feature file"
-    features = get_features(sentence_list[i]).append(ner_features[i])
-    if not label_list: f.write("0") #label
-    else: f.write(label_list[i])
-    f.write(" qid:1")
-    for j in range(len(features)):
-      if features[j] != 0: f.write(" " + str(j + 1) + ":" + str(features[j]))
-    f.write("\n")
-  f.close()
-      
-    
-def get_features(sentence):
-  features = []
-  # features.extend(count_specificities(sentence))
-  features.extend(count_sentence_lengths(sentence))
-  features.extend(count_sentence_topic_words(sentence))
-  features.extend(get_mpqa_features(sentence, MPQA_DICT))
-  # features.extend(get_sentence_position(sentence))
-    #TODO add features
-  return features
 
-def get_rankings(sentences):
-  '''Gets ranking of sentences in this collection'''
-  feature_file = "__temp_features"
-  predict_file = "__temp_predict"
-  write_feature_file(sentences, feature_file)
-  if not os.path.isfile(SVM_MODEL): train_svm()
-  subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_classify", feature_file, SVM_MODEL, predict_file]) 
-  
-  p = open(predict_file, 'r')
-  predictions = map(lambda x: float(x.strip("\n")), p.readlines())
-  p.close()
+def score_sentence(sentence):
+  spec = count_specificities(sentence)
+  ts_count = count_sentence_topic_words(sentence)[0]
+  if ts_count == 0: return spec[-1] * 2
+  return spec[-1] / ts_count
+
+def test_helper(sentences):
+  summary = []
+  tfidf_dict = make_tfidf_dict(sentences)
+
+  scores = []
+  for sentence in sentences:
+    scores.append(score_sentence(sentence))
+
   pq = PriorityQueue()
-  for pair in zip(predictions, sentences):
+  for pair in zip(scores, sentences):
     pq.put(pair)
-  return pq
-
-def ml_summary(sentences):
-  '''Uses trained classifier to extract summary'''
-  pq = get_rankings(sentences)
-  summary = [] 
-  tf_idf_dict = make_tfidf_dict(sentences)
   while summary_length(summary) <= 100 and not pq.empty():
-    rank, next_sentence = pq.get()
+    score, next_sentence = pq.get()
     if is_valid(next_sentence, summary, tfidf_dict):
       summary.append(next_sentence)
   return "\n".join(summary)
 
-def train_svm():
-  '''Trains SVM-Rank model using sentences rankings based under perplixity from model-summary LMs'''
-  lm_data = "__temp_srilmdata"
-  lm_file = "__temp_srilmtrain"
-  svm_data = "__temp_svmdata"
-  labels = []
-  sentences = []
-
-  model_files = get_all_files(DEV_MODELS)
-  ts_files = gen_ts_files(DEV)
-  dev_directories = get_sub_directories(DEV)
-  for i in range(len(dev_directories)):
-    dev_set = dev_directories[i]
-    print dev_set
-    models = filter(lambda f: f.startswith(dev_set), model_files)
-    write_model_file(models, lm_data)
-    subprocess.call(["/home1/c/cis530/hw2/srilm/ngram-count", "-text", lm_data, "-lm", lm_file])
-    for dev_doc in get_all_files(DEV + dev_set):
-      (sents, ppls) = get_sentences_and_ppl(DEV + dev_set + "/" + dev_doc, lm_file)
-      sentences.extend(sents)
-      labels.extend(ppls)
-  write_feature_file(sentences, svm_data,labels)
-  subprocess.call(["/project/cis/nlp/tools/svmRank/svm_rank_learn", "-c", "20",svm_data, SVM_MODEL]) #TODO c value?
-  os.remove(lm_data); os.remove(lm_file); os.remove(svm_data)
-    
-def write_model_file(models, filename):
-  '''Writes all models to same file for SRILM processing'''
-  output = open(filename, 'w')
-  for model in models:
-    model_sents = load_file_sentences(DEV_MODELS + model)
-    for sent in model_sents: output.write(" ".join(sent) + '\n')
-  output.close()
-
-def get_sentences_and_ppl(document, lm_file):
-  '''Uses LM to calculate perplexities of sentences in file; returns tuple of sentences and ppls'''
-  args = ['/home1/c/cis530/hw2/srilm/ngram', '-lm', lm_file, '-ppl', document, "-debug", "1"]
-  proc = subprocess.Popen(args, stdout=subprocess.PIPE)
-  (output,err) = proc.communicate()
-  output_lines = output.split("\n")
-  sents = []
-  ppls = []
-  i = 0
-  while i < len(output_lines) - 4:
-    if i % 4 == 0: sents.append(output_lines[i].strip())
-    if i % 4 == 2: ppls.append(re.search("ppl= (\S+)", output_lines[i]).group(1))
-    i += 1
-  return sents, ppls
-
-def xmlfiles_exist(input_collection):
-  '''Checks that all necessary XML files from CoreNLP exist'''
-  xml_dir = "coreNLP_files"
-  if not os.path.isdir(xml_dir): return False
-  for dr in get_sub_directories(input_collection):
-    for doc in get_all_files(input_collection + dr):
-      if not os.path.isfile(xml_dir + "/" + doc + ".xml") : return False
-  return True
-
-def set_up(input_collection):
-  '''Pre-processing for machine-learning summarizer'''
-  ts_files = gen_ts_files(DEV)
-  global MPQA_DICT
-  MPQA_DICT = get_mpqa_lexicon()
-  if not xmlfiles_exist(input_collection):
-    make_corenlp_files(input_collection)
-
 def summarize(input_collection, output_folder, method):
   if not input_collection.endswith('/'): input_collection += '/'
   if not output_folder.endswith('/'): output_folder += '/'
-  if method == 4: set_up(input_collection)
+  if method == 4: ts_files = gen_ts_files(input_collection)
   dir_list = get_sub_directories(input_collection)
   for i in range(len(dir_list)):
     directory = dir_list[i]
@@ -730,10 +563,8 @@ def summarize(input_collection, output_folder, method):
         global TOPIC_WORDS
         TOPIC_WORDS = get_top_topic_words(ts_files[i], 20)
         build_sentence_position_dict(input_collection + directory)
-        print POSITION_DICT
-        summary = ml_summary(sentences)
+        summary = test_helper(sentences)
     else : summary = ""
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
 
-#summarize(DEV, '../ours', 4)
