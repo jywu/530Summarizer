@@ -530,7 +530,7 @@ def score_sentence(sentence):
   if ts_count == 0: ts_count = 0.5
   return spec[-1] / (position * ts_count)
 
-def test_helper(sentences):
+def feature_summarize(sentences):
   '''Summarize using sentence specificity and topic words'''
   summary = []
   tfidf_dict = make_tfidf_dict(sentences)
@@ -546,6 +546,12 @@ def test_helper(sentences):
     if is_valid(next_sentence, summary, tfidf_dict):
       summary.append(next_sentence)
   return "\n".join(summary)
+
+def FeatureSum(input_collection, output_folder):
+  '''Our custom summarizer, cannibalized from features of an SVM classifier'''
+  set_redundancy(1.0)
+  summarizer(input_collection, output_folder, 4)
+  
 
 def summarize(input_collection, output_folder, method):
   '''Creates summaries of input_collection documents using specified method'''
@@ -564,7 +570,7 @@ def summarize(input_collection, output_folder, method):
         global TOPIC_WORDS
         TOPIC_WORDS = get_top_topic_words(ts_files[i], 20)
         build_sentence_position_dict(input_collection + directory)
-        summary = test_helper(sentences)
+        summary = feature_summarize(sentences)
     else : summary = ""
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
