@@ -276,7 +276,7 @@ def get_eigenvector(graph):
         eig_vector = [sum(row) for row in graph]
     return eig_vector
 
-STOP_LEVEL = 0.65
+STOP_LEVEL = 0.1
 
 def page_rank_iteration(graph, all_sents):
     size_range = range(len(graph))
@@ -432,7 +432,7 @@ def update(sum_dict, sent_dict):
   for (word, freq) in sent_dict.items():
     sum_dict[word] = sum_dict.get(word, 0.0) + freq
 
-### Our Summarizer ###
+### Our Summarizer Rouge-2 Recall: 0.08253 ###
 #features: (subject to change)
 ## topic words: how many topic words in the entire collection are found in the sentence
 ## sentence position in document
@@ -525,7 +525,7 @@ def count_sentence_topic_words(sentence):
     for word in words:
         word = STEMMER.stem(word)
     intersect = set(words).intersection(set(TOPIC_WORDS))
-    return [len(intersect)]
+    return len(intersect)
 
 #### feature: sentence position ####
 def build_sentence_position_dict(directory):
@@ -541,13 +541,15 @@ def build_sentence_position_dict(directory):
 
 def get_sentence_position(sentence):
     sentence = sentence.lower()
-    return [POSITION_DICT[sentence]]
+    return POSITION_DICT[sentence]
 
 def score_sentence(sentence):
     spec = count_specificities(sentence)
-    ts_count = count_sentence_topic_words(sentence)[0]
+    ts_count = count_sentence_topic_words(sentence)
+    position = get_sentence_position(sentence)
     if ts_count == 0: return spec[-1] * 2
-    return spec[-1] / ts_count
+    if spec[-1] == 0: return -(ts_count * position)
+    return  - (ts_count * position) / spec[-1]
 
 def test_helper(sentences):
     summary = []
@@ -556,14 +558,13 @@ def test_helper(sentences):
     scores = []
     for sentence in sentences:
         scores.append(score_sentence(sentence))
-    print scores
     pq = PriorityQueue()
     for pair in zip(scores, sentences):
         pq.put(pair)
     while summary_length(summary) <= 100 and not pq.empty():
         score, next_sentence = pq.get()
-    if is_valid(next_sentence, summary, tfidf_dict):
-        summary.append(next_sentence)
+        if is_valid(next_sentence, summary, tfidf_dict):
+            summary.append(next_sentence)
     return "\n".join(summary)
 
 def summarize(input_collection, output_folder, method):
@@ -582,7 +583,7 @@ def summarize(input_collection, output_folder, method):
     elif (method == 3) : summary = gen_KL_summary(sentences)
     elif (method == 4) : 
         global TOPIC_WORDS
-        TOPIC_WORDS = get_top_topic_words(ts_files[i], 35)
+        TOPIC_WORDS = get_top_topic_words(ts_files[i], 30)
         build_sentence_position_dict(input_collection + directory)
         summary = test_helper(sentences)
         print summary
