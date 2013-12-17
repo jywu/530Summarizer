@@ -506,17 +506,16 @@ def count_sentence_topic_words(sentence):
 
 #### feature: sentence position ####
 def build_sentence_position_dict(directory):
-    pos_dict = {}
-    files = get_all_files(directory)
-    for f in files:
-        sents = load_file_sentences(directory +'/'+f)
-#        for i in range(len(sents)): pos_dict[sents[i]] = i
-        for i in range(len(sents)): 
-            if i == 0: pos_dict[sents[i]] = 3
-            elif i == 1: pos_dict[sents[i]] = 2
-            else: pos_dict[sents[i]] = .5
-    global POSITION_DICT
-    POSITION_DICT = pos_dict
+  pos_dict = {}
+  files = get_all_files(directory)
+  for f in files:
+    sents = load_file_sentences(directory +'/'+f)
+    for i in range(len(sents)): 
+      if i == 0: pos_dict[sents[i]] = 2.5
+      elif i == 1: pos_dict[sents[i]] = 1
+      else: pos_dict[sents[i]] = .1
+  global POSITION_DICT
+  POSITION_DICT = pos_dict
 
 def get_sentence_position(sentence):
     sentence = sentence.lower()
@@ -529,7 +528,6 @@ def score_sentence(sentence):
   ts_count = count_sentence_topic_words(sentence)
   position = get_sentence_position(sentence)
   if ts_count == 0: ts_count = 0.5
-#  return spec[-1] * position / ts_count
   return spec[-1] / (position * ts_count)
 
 def test_helper(sentences):
