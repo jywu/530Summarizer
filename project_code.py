@@ -427,24 +427,18 @@ def hypernym_distance(word): #From HW4
   else:
     return 1
 
-def count_specificities(sentence):
-  '''Counts the number of general, medium, and specific, or unspecified entities in the sentence, as well as the average specificity of the non-1 words'''
-  specs = [0, 0, 0, 0]
-  total_spec = 0.0
-  high_threshold = 8  #decided by looking at stats of dev input
-  med_threshold = 4
+def compute_specificity(sentence):
+  '''Calculates the specificity of a sentence as the average specificity of nouns in the sentence'''
+  spec_sum = 0.0
+  total_words = 0
   for word in word_tokenize(sentence):
     if len(wn.synsets(word, pos=wn.NOUN)) != 0:
       spec = hypernym_distance(word)
-      if spec == 1: specs[3] += 1
-      elif spec >  high_threshold: specs[2] += 1
-      elif spec > med_threshold: specs[1] += 1
-      else: specs[0] += 1
-      if spec != 1: total_spec += spec
-  div = specs[0] + specs[1] + specs[2]
-  if div == 0: specs.append(0)
-  else: specs.append(total_spec/div)
-  return specs
+      if spec != 1: 
+        spec_sum += spec
+        total_words += 1
+  if total_words == 0 : return 1.0
+  return spec_sum / total_words
 
 
 #### feature: topic words ####
@@ -521,14 +515,13 @@ def get_sentence_position(sentence):
     sentence = sentence.lower()
     return POSITION_DICT[sentence]
 
-
 def score_sentence(sentence):
   '''Score sentence based on topic word count and average specificity'''
-  spec = count_specificities(sentence)
+  spec = compute_specificity(sentence)
   ts_count = count_sentence_topic_words(sentence)
   position = get_sentence_position(sentence)
   if ts_count == 0: ts_count = 0.5
-  return spec[-1] / (position * ts_count)
+  return spec / (position * ts_count)
 
 def feature_summarize(sentences):
   '''Summarize using sentence specificity and topic words'''
@@ -550,7 +543,7 @@ def feature_summarize(sentences):
 def FeatureSum(input_collection, output_folder):
   '''Our custom summarizer, cannibalized from features of an SVM classifier'''
   set_redundancy(1.0)
-  summarizer(input_collection, output_folder, 4)
+  summarize(input_collection, output_folder, 4)
   
 
 def summarize(input_collection, output_folder, method):
@@ -558,7 +551,7 @@ def summarize(input_collection, output_folder, method):
   '''1 = TF*IDF, 2 = LexRank, 3 = KL, 4 = our summarizer'''
   if not input_collection.endswith('/'): input_collection += '/'
   if not output_folder.endswith('/'): output_folder += '/'
-  if method == 4: ts_files = gen_ts_files(input_collection)
+  if method == 4:  ts_files = gen_ts_files(input_collection)
   dir_list = get_sub_directories(input_collection)
   for i in range(len(dir_list)):
     directory = dir_list[i]
