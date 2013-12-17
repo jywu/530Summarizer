@@ -501,40 +501,41 @@ def get_top_topic_words(ts_file, n):
 def count_sentence_topic_words(sentence):
     words = word_tokenize(sentence)
     intersect = set(words).intersection(set(TOPIC_WORDS))
-    return [len(intersect)]
+    return len(intersect)
 
 
 #### feature: sentence position ####
 def build_sentence_position_dict(directory):
-    dct = dict()
+    pos_dict = {}
     files = get_all_files(directory)
     for f in files:
         sents = load_file_sentences(directory +'/'+f)
-        for i in range(len(sents)):
-            if i == 0:
-                dct[sents[0]] = 3
-            elif i == 1:
-                dct[sents[1]] = 1
-            else:
-                dct[sents[i]] = 0
+#        for i in range(len(sents)): pos_dict[sents[i]] = i
+        for i in range(len(sents)): 
+            if i == 0: pos_dict[sents[i]] = 3
+            elif i == 1: pos_dict[sents[i]] = 2
+            else: pos_dict[sents[i]] = .5
     global POSITION_DICT
-    POSITION_DICT = dct
+    POSITION_DICT = pos_dict
 
 def get_sentence_position(sentence):
     sentence = sentence.lower()
-    return [POSITION_DICT[sentence]]
+    return POSITION_DICT[sentence]
 
 
 def score_sentence(sentence):
+  '''Score sentence based on topic word count and average specificity'''
   spec = count_specificities(sentence)
-  ts_count = count_sentence_topic_words(sentence)[0]
-  if ts_count == 0: return spec[-1] * 2
-  return spec[-1] / ts_count
+  ts_count = count_sentence_topic_words(sentence)
+  position = get_sentence_position(sentence)
+  if ts_count == 0: ts_count = 0.5
+#  return spec[-1] * position / ts_count
+  return spec[-1] / (position * ts_count)
 
 def test_helper(sentences):
+  '''Summarize using sentence specificity and topic words'''
   summary = []
   tfidf_dict = make_tfidf_dict(sentences)
-
   scores = []
   for sentence in sentences:
     scores.append(score_sentence(sentence))
@@ -549,6 +550,8 @@ def test_helper(sentences):
   return "\n".join(summary)
 
 def summarize(input_collection, output_folder, method):
+  '''Creates summaries of input_collection documents using specified method'''
+  '''1 = TF*IDF, 2 = LexRank, 3 = KL, 4 = our summarizer'''
   if not input_collection.endswith('/'): input_collection += '/'
   if not output_folder.endswith('/'): output_folder += '/'
   if method == 4: ts_files = gen_ts_files(input_collection)
