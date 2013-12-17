@@ -1,0 +1,6 @@
+stopFilePath = stoplist-smart-sys.txt
+performStemming = N
+backgroundCorpusFreqCounts = bgCounts-Giga.txt
+topicWordCutoff = 0.1
+inputDir = /home1/c/cis530/final_project/test_input/test_14
+outputFile = /mnt/castor/seas_home/e/emboggs/Documents/CIS530/530Summarizer/topicwords/test_14.ts
