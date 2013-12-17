@@ -283,6 +283,37 @@ def get_eigenvector(graph):
     # print eig_vector
     return eig_vector
 
+STOP_LEVEL = 0.85
+
+def page_rank_iteration(graph, all_sents):
+    size_range = range(len(graph))
+    score_dict = dict((i, (1, 0)) for i in size_range)
+    graph_dict = dict((i, list()) for i in size_range)
+    for i in size_range:
+        for j in range(i, len(graph)):
+            if graph[i][j] != 0:
+                graph_dict[i].append(j)
+                graph_dict[j].append(i)
+    diff = 1
+    while(diff < STOP_LEVEL):
+        for node in size_range:
+            neighbours = graph_dict[node]
+            share = score_dict[node][0] / len(neighbours)
+            score_dict[node][0] = 0
+            for neighbour in neighbours:
+                score_dict[neighbour][1] += share
+        diff = 0
+        for node in size_range:
+            share = score_dict[node][1]
+            score_dict[node][0] += share
+            score_dict[node][1] = 0
+            diff += share * share
+        diff = math.sqrt(diff)
+    sorted_dict = sorted(score_dict.iteritems(), key=itemgetter(1), reverse=True)
+    result =  [all_sents[entry[0]] for entry in sorted_dict]
+    print result
+    return result
+''' 
 def page_rank_iteration(graph, all_sents):
     # sums = [sum(row) for row in graph]
     # score_dict = dict(zip(all_sents, sums))
@@ -293,7 +324,7 @@ def page_rank_iteration(graph, all_sents):
         score_dict[all_sents[i]] = eig_vector[i]
     sorted_dict = sorted(score_dict.iteritems(), key=itemgetter(1), reverse=True)
     return [entry[0] for entry in sorted_dict]
-
+'''
 def get_top_sentences(sents, num_words, tfidf_dict):
     num_token = 0
     result = []
@@ -321,7 +352,6 @@ def lex_sum_helper(dir_path):
 def LexRankSum(input_collection, output_folder):
   summarize(input_collection, output_folder, 2)
     
-# LexRankSum(DEV, '../lexPageRank')
 
 ### TF-IDF Summarizer ### ROUGE-2 Recall (DEV) = 0.07807
 def TFIDFSum(input_collection, output_folder):
@@ -499,8 +529,8 @@ def get_top_n_topic_words(topic_words_dict, n):
     sorted_list = [ x[0] for x in sorted_dict[:n] ]
     return sorted_list
 
-def write_config_files(dev_path):
-  dirs = get_sub_directories(dev_path)
+def write_config_files():
+  dirs = get_sub_directories(DEV)
   ts_files = []
   config_files = []
   for directory in dirs:
@@ -511,7 +541,7 @@ def write_config_files(dev_path):
         content += 'performStemming = N\n'
         content += 'backgroundCorpusFreqCounts = bgCounts-Giga.txt\n'
         content += 'topicWordCutoff = 0.1\n'
-        content += 'inputDir = ' + dev_path + '/' + directory + '\n'
+        content += 'inputDir = ' + DEV + '/' + directory + '\n'
         content += 'outputFile = ' + ts_file + '\n'
         with open(config_file, 'wa') as f:
             f.write(content)
@@ -519,8 +549,8 @@ def write_config_files(dev_path):
     ts_files.append(ts_file)
   return config_files, ts_files  
 
-def gen_ts_files(dev_path):
-    config_files, ts_files = write_config_files(dev_path)
+def gen_ts_files():
+    config_files, ts_files = write_config_files()
     if config_files == []:
         for config_file in config_files:
             os.chdir("/home1/c/cis530/hw4/TopicWords-v2/")
@@ -582,13 +612,9 @@ def build_sentence_position_dict(directory):
     files = get_all_files(directory)
     for f in files:
         sents = load_file_sentences(directory +'/'+f)
-        for i in range(len(sents)):
-            if i == 0:
-                dct[sents[0]] = 3
-            elif i == 1:
-                dct[sents[1]] = 1
-            else:
-                dct[sents[i]] = 0
+        length = len(sents)
+        for i in range(length):
+            dct[sents[i]] = length - i
     global POSITION_DICT
     POSITION_DICT = dct
 
@@ -615,7 +641,7 @@ def write_feature_file(sentence_list, feature_file, label_list=None):
     
 def get_features(sentence):
   features = []
-  # features.extend(count_specificities(sentence))
+  features.extend(count_specificities(sentence))
   features.extend(count_sentence_lengths(sentence))
   features.extend(count_sentence_topic_words(sentence))
   features.extend(get_mpqa_features(sentence, MPQA_DICT))
@@ -659,7 +685,7 @@ def train_svm():
   sentences = []
 
   model_files = get_all_files(DEV_MODELS)
-  ts_files = gen_ts_files(DEV)
+  ts_files = gen_ts_files()
   dev_directories = get_sub_directories(DEV)
   for i in range(len(dev_directories)):
     dev_set = dev_directories[i]
@@ -709,7 +735,7 @@ def xmlfiles_exist(input_collection):
 
 def set_up(input_collection):
   '''Pre-processing for machine-learning summarizer'''
-  ts_files = gen_ts_files(DEV)
+  ts_files = gen_ts_files()
   global MPQA_DICT
   MPQA_DICT = get_mpqa_lexicon()
   if not xmlfiles_exist(input_collection):
@@ -723,6 +749,7 @@ def summarize(input_collection, output_folder, method):
   for i in range(len(dir_list)):
     directory = dir_list[i]
     sentences = load_collection_sentences(input_collection + directory)
+    print len(sentences)
     if (method == 1): summary = gen_TFIDF_summary(sentences)
     elif (method == 2) : summary = lex_sum_helper(input_collection + directory)
     elif (method == 3) : summary = gen_KL_summary(sentences)
@@ -730,10 +757,10 @@ def summarize(input_collection, output_folder, method):
         global TOPIC_WORDS
         TOPIC_WORDS = get_top_topic_words(ts_files[i], 20)
         build_sentence_position_dict(input_collection + directory)
-        print POSITION_DICT
         summary = ml_summary(sentences)
     else : summary = ""
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
 
-#summarize(DEV, '../ours', 4)
+# summarize(DEV, '../ours', 4)
+LexRankSum(DEV, '../lexPageRank')
