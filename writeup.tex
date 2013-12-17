@@ -1,5 +1,5 @@
 %
-% File naaclhlt2013.tex
+% File writeup.tex
 %
 
 \documentclass[11pt,letterpaper]{article}
@@ -67,20 +67,15 @@ The threshold for removing redundant sentences is set to 1, which means that sen
 \section{Your Summarization System}
 
 \subsection{System Design}
+Our summarizer is designed around the idea that there are certain features that are distinctive of good summaries. Summaries should address the main points of the documents being summarized. In addition, human-written summaries tend to be general rather than specific. At first, we used these and other intuitions about summaries to build features for a classifier that would rank the sentences using SVMRank. However, this system was ineffective, with a prohibitively long runtime and a subpar automatic annotation component. To avoid these issues, we pared down the list of features and removed the need for supervised learning, creating a method of scoring sentences that does not require weighting or normalizing of features. 
 
-This part shows general idea of your system. You may use flowchart, graphics or pseudo-code to describe your algorithm.
+The scoring mechanism of the summarizer uses three features from the classifier: specificity, topic words, and sentence position. These features were chosen because their relationship to the notion of a "good" summary is fairly predictable, whereas the effect other features (such as named entities and word polarity) was less intuitive. In the summarizer, sentences are ranked in Python's implementation of a priority queue, which returns elements in order from smallest to greatest priority. Therefore, the scores needed to be generated such that a lower score means that a sentence is more likely to be included in the summary....  
 
 \subsection{Resources \& Tools Used}
 \vskip 1em
-\noindent SRILM is used to create a language model of the dev\_model summaries. Sentences are ranked by their perplxity in the language model, to automatically generate labels for training the classifier. Sentences with lower perplexity are assumed to be more likely to be in the summary.
+\noindent WordNet is used to determine sentence specificity. The specificity of each word in a sentence is computed as the distance between the word and the root hypernym in WordNet. Each word is designated as specific, general, or medium according to pre-determined thresholds. The specificity of the sentence is the average specificity of the nouns in that sentence. The motivation for this feature is the idea that summaries might be more likely to contain general terms instead of specific ones.
 \vskip 1em
-\noindent WordNet is used in one of the classifier feature groups. The specificity of each word in a sentence is computed as the distance between the word and the root hypernym in WordNet. Each word is designated as specific, general, or medium according to pre-determined thresholds. The counts of each of these word types, as well as the average specificity of the words in the sentence, are used as feature values. The motivation for this feature is the idea that summaries might be more likely to contain general terms instead of specific ones, or vice versa.
-\vskip 1em
-\noindent Stanford NER is also used in a feature group, by counting the number of each type of named entity (person, organization, and location) in a sentence. The motivation for this feature is the intuition that named entities provide important detail about the topic being discussed (such as the "who, what, where" of an article). 
-\vskip 1em
-\noindent TopicS is used for another feature pertaining to the topic words in set of documents. Sentences contain topic words are likely to be discussing the general topic of an article, as opposed to a specific detail; these sentences should be more highly ranked.
-\vskip 1em
-\noindent MPQA/GenInq?? is used for a feature based on sentiment analysis. By characterizing the sentiment content of a sentence, it might be possible to gain an idea of its likelihood of occurring in a summary. For example, summaries might contain more neutral language, leaving the stronger sentiments to the more detailed descriptions in a full article. On the other hand, the sentences with strong positive and negative sentiment words may be considered more important to include in a summary.
+\noindent TopicS is used to calculate the number of topic words for the collection that are in a sentence. Sentences that contain topic words are likely to be discussing the general topic of an article, as opposed to a specific detail; these sentences should be more highly ranked.
 
 \subsection{Performance}
 
@@ -88,35 +83,20 @@ This part shows general idea of your system. You may use flowchart, graphics or 
 
 \begin{thebibliography}{}
 
-\bibitem[\protect\citename{Aho and Ullman}1972]{Aho:72}
-Alfred~V. Aho and Jeffrey~D. Ullman.
-\newblock 1972.
-\newblock {\em The Theory of Parsing, Translation and Compiling}, volume~1.
-\newblock Prentice-{Hall}, Englewood Cliffs, NJ.
+\bibitem[\protect\citename{Erkan and Radev}2004]{Erkan:2004}
+Gunes Erkan and Dragomir~R. Radev.
+\newblock {\em LexPageRank: prestige in multi-document text summarization.}
+\newblock Proceedings of EMNLP2004.
 
-\bibitem[\protect\citename{{American Psychological Association}}1983]{APA:83}
-{American Psychological Association}.
-\newblock 1983.
-\newblock {\em Publications Manual}.
-\newblock American Psychological Association, Washington, DC.
+\bibitem[\protect\citename{Lin}2004]{Lin:2004}
+Chin-Yew Lin.
+\newblock {\em ROUGE: A package for automatic evaluation of summaries.}
+\newblock Proceedings of ACL2004.
 
-\bibitem[\protect\citename{{Association for Computing Machinery}}1983]{ACM:83}
-{Association for Computing Machinery}.
-\newblock 1983.
-\newblock {\em Computing Reviews}, 24(11):503--512.
-
-\bibitem[\protect\citename{Chandra \bgroup et al.\egroup }1981]{Chandra:81}
-Ashok~K. Chandra, Dexter~C. Kozen, and Larry~J. Stockmeyer.
-\newblock 1981.
-\newblock Alternation.
-\newblock {\em Journal of the Association for Computing Machinery},
-  28(1):114--133.
-
-\bibitem[\protect\citename{Gusfield}1997]{Gusfield:97}
-Dan Gusfield.
-\newblock 1997.
-\newblock {\em Algorithms on Strings, Trees and Sequences}.
-\newblock Cambridge University Press, Cambridge, UK.
+\bibitem[\protect\citename{Louis and Nenkova}2011]{Louis:2011}
+Annie Louis and Ani Nenkova.
+\newblock {\em Automatic identification of general and specific sentences by leveraging discourse annotations.}
+\newblock Proceedings of IJCNLP2011.
 
 \end{thebibliography}
 
