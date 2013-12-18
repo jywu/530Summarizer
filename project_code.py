@@ -229,12 +229,6 @@ def normalize_matrix(matrix):
         sum_value = sum(row)
         if sum_value != 0:
             matrix[i] = [(sim * 1.0 / sum_value) for sim in row]
-    #for i in range(len(matrix)):
-    #    column = [row[i] for row in matrix]
-    #    sum_value = sum(column)
-    #    if sum_value != 0:
-    #        for row in matrix:
-    #            row[i] = row[i] * 1.0 /sum_value
     return matrix 
 
 def build_similarity_matrix(feature_space):
@@ -259,7 +253,6 @@ def make_graph(feature_space, all_sents):
             if matrix[row][col] > THRESHOLD:
                 graph[row][col] = 1
     return normalize_matrix(graph)
-    # return graph
 
 def column_value_positive(index, vectors):
     for row in vectors:
@@ -271,12 +264,10 @@ def get_eigenvector(graph):
     values, vectors = LA.eig(normalize_matrix(graph))
     max_index = np.argmax(values)
     if column_value_positive(max_index, vectors):
-        # print 'Using vector!!!!!!!'
         eig_vector = []
         for i in range(len(vectors)):
             eig_vector.append(vectors[i][max_index])
     else:
-        # print 'Using sum of row!!!!!'
         eig_vector = [sum(row) for row in graph]
     return eig_vector
 
@@ -326,7 +317,6 @@ def lex_sum_helper(dir_path):
     all_sents = load_collection_sentences(dir_path)
     tfidf_dict = make_tfidf_dict(all_sents)
     feature_space = build_feature_space(all_sents, tfidf_dict)
-    # feature_space = create_feature_space(all_sents)
     print 'Built feature_space!'
     graph = make_graph(feature_space,all_sents)
     print 'Built graph matrix!'
@@ -337,10 +327,11 @@ def lex_sum_helper(dir_path):
     return summary
 
 def LexRankSum(input_collection, output_folder):
+  set_redundancy(0.8)
   summarize(input_collection, output_folder, 2)
     
 
-### TF-IDF Summarizer ### ROUGE-2 Recall (DEV) = 0.07807
+### TF-IDF Summarizer ### 
 def TFIDFSum(input_collection, output_folder):
   '''Creates TF*IDF summaries of input collection'''
   set_redundancy(0.8)
@@ -369,7 +360,7 @@ def gen_TFIDF_summary(sentences):
   return "\n".join(summary)
 
 
-### Greedy KL Summarizer ### current ROUGE-2 = 0.08899
+### Greedy KL Summarizer ### 
 def KLSum(input_collection, output_folder):
   '''Creates KL summaries of input collection'''
   set_redundancy(1.0)
@@ -484,7 +475,7 @@ def get_top_n_topic_words(topic_words_dict, n):
 def write_config_files(dev_path):
   '''Writes config files for ts files that need to be made'''
   '''Returns list of config files (only the ones for ts files that don't exist) and ts_files (all that are used for this input_collection'''
-  dirs = get_sub_directories(DEV)
+  dirs = get_sub_directories(dev_path)
   ts_files = []
   config_files = []
   if not os.path.isdir(TW_DIR): os.mkdir(TW_DIR)
@@ -599,5 +590,12 @@ def summarize(input_collection, output_folder, method):
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
 
-FeatureSum(DEV, './summaries')
-# LexRankSum(DEV, '../lexPageRank')
+if __name__ == "__main__":
+  TFIDFSum(DEV, './summaries/dev_tfidfsum')
+  LexRankSum(DEV, './summaries/dev_lexrank')
+  KLSum(DEV, './summaries/dev_klsum')
+  FeatureSum(DEV, './summaries/dev_fsum')
+  TFIDFSum(TEST, './summaries/test_tfidfsum')
+  LexRankSum(TEST, './summaries/test_lexrank')
+  KLSum(TEST, './summaries/test_klsum')
+  FeatureSum(TEST, './summaries/test_fsum')
