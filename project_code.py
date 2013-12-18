@@ -577,12 +577,12 @@ def summarize(input_collection, output_folder, method):
     elif (method == 3) : summary = gen_KL_summary(sentences)
     elif (method == 4) : 
         global TOPIC_WORDS
-        TOPIC_WORDS = get_top_topic_words(ts_files[i], 20)
+        TOPIC_WORDS = get_top_topic_words(ts_files[i], 30)
         build_sentence_position_dict(input_collection + directory)
         summary = feature_summarize(sentences)
     else : summary = ""
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
 
-#summarize(DEV, '../ours', 4)
+summarize(DEV, './summaries', 4)
 # LexRankSum(DEV, '../lexPageRank')
