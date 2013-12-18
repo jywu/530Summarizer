@@ -53,7 +53,7 @@ The threshold for removing redundant sentences is set to 1, which means that sen
 \begin{tabular}{|c|c|c|c|}
   \hline
   System & TF*IDF & LexRank & KL  \\ \hline
-  Rouge-2 Recall & 0.07807 & 0.06668 & 0.08899 \\
+  Rouge-2 Recall & 0.07807 & 0.072 & 0.08899 \\
   \hline
 \end{tabular}
 
@@ -82,6 +82,8 @@ On the development data, this system achieves a ROUGE-2 recall of 0.08973.
 \section{Discussion and Analysis}
 By counting and stemming topic words, our summarizer yields better recall in its summaries. One of our criteria of choosing summary sentences is whether the sentence contains enough topic words. In order to more accurately check if a sentence is related to the general topic, we've decided to stem both the topic words and the test input. The topic words are stemmed by specifying "performStemming=Y" in the configure file for TopicS (TopicS uses PorterStemm). Words in teach sentence are also stemmed by calling PorterStemmer.stem(). This avoids false negative (not selecting sentences that should be selected) situations where a sentence contains one or more derivatives of a topic word. Therefore, our summarizer outperforms the three basic summarizers above, because by using stemming we give such sentences an advantage over sentences that are not related to the topic.
 
+\noindent One of our criteria of choosing summary sentences is whether the sentence contains enough topic words. Therefore, our summarizer outperforms the three basic summarizers above, because by using TopicS we give such sentences an advantage over sentences that are not related to the topic.
+We experimented with stemming both topic words and testing input, and found stemming not helping in this case, with a ROUGE-2 recall at around 0.086, compared to the score for non-stemming summarizer at 0.090. This may be because the topic words in the input data are mostly very specific nouns that does not have many derived word forms. Another possible reason is that the topic words only appear in the documents in the same form, even though it may have many derived word forms. On the other hand, stemming may result in ambiguation of the specificity of a word, resulting in giving advantage to words that have similar forms (e.g. same root) with the topic, but is not closely related to the topic. In our summarizer, this tradeoff probably offsets the advantage of stemming.
 \begin{thebibliography}{}
 
 \bibitem[\protect\citename{Erkan and Radev}2004]{Erkan:2004}
