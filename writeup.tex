@@ -41,10 +41,10 @@ The sentence score is calculated over all word types, instead of all tokens. In 
 In reducing redundancy, the best similarity threshold was found to be 0.8, which resulted in the highest ROUGE-2 recall for the development data. 
 
 \subsection{LexRank System}
-The RexPageRank Summarizer represents each sentence as a node in the graph. Sentences are connected through an edge if they have a cosine similarity of TF-IDFover the threshold 0.1, which we found yields best results. The graph is represented as a matrix normalized in columns. 
-We used power iteration to calculate the prime eigenvector for each matrix. The stopping criteria for the iteration is when the squareroot of sum of squares of the differences between the pre-iteration and post-iteration value of each node falls to/under 0.15 (sqrt(d1^2 + d2^2 + ... + dn^2)) <= 0.1). According to our experiments, this criteria renders good rouges scores. The resulting prime eigenvector contains the final score of each sentence. Ranking the sentence according to the score, we generate a summary containing top-ranking sentences. The ROUGE-2 recall for the data is 0.07194.
+The LexPageRank Summarizer represents each sentence as a node in the graph. Sentences are connected through an edge if they have a cosine similarity of TF-IDF over the threshold 0.1, which we found yields best results. The graph is represented as a matrix normalized in columns. 
+We used power iteration to calculate the prime eigenvector for each matrix. The stopping criteria for the iteration is when the square root of sum of squares of the differences between the pre-iteration and post-iteration value of each node falls to/under 0.15 ($\sqrt{d_1^2 + d_2^2 + ... + d_n^2} <= 0.1$). According to our experiments, this criteria renders good ROUGE scores. The resulting prime eigenvector contains the final score of each sentence. Ranking the sentences according to the score, we generate a summary containing top-ranking sentences.
 
-\subsection{Kl Divergence System}
+\subsection{KL Divergence System}
 The KL Summarizer selects sentences to add to the summary by greedily choosing the sentence that will minimize KL divergence between the summary and the input. For this implementation, stopwords are ignored in all calculations. Because unigram distribution of stopwords is less likely to be substantially different between the summary and the input, removing them would highlight the meaningful words in the distribution. No smoothing was performed in calculating the distributions; since KL is a sum of probability calculations, a zero term does not significantly affect the output. 
 The threshold for removing redundant sentences is set to 1, which means that sentences are not ignored on the basis of similarity to sentences already in the summary. This value was chosen based on tests with development data; one possible explanation for the result is that the KL computation takes care of redundancy issues itself, causing any further effort to be counterproductive.
 
@@ -53,7 +53,7 @@ The threshold for removing redundant sentences is set to 1, which means that sen
 \begin{tabular}{|c|c|c|c|}
   \hline
   System & TF*IDF & LexRank & KL  \\ \hline
-  Rouge-2 Recall & 0.07807 & 0.072 & 0.08899 \\
+  Rouge-2 Recall & 0.08058 & 0.07194 & 0.08899 \\
   \hline
 \end{tabular}
 
@@ -66,7 +66,7 @@ Our summarizer is designed around the idea that there are certain features that 
 The scoring mechanism of the summarizer uses three features from the classifier: specificity, topic words, and sentence position. These features were chosen because their relationship to the notion of a "good" summary is fairly predictable, whereas the effect other features (such as named entities and word polarity) was less intuitive. For descriptions of the calculation of feature values, see the following section.
 
 In the summarizer, sentences are ranked in Python's implementation of a priority queue, which returns elements in order from smallest to greatest priority. Therefore, the scores needed to be generated such that a lower score means that a sentence is more likely to be included in the summary.
-To achieve this, we first analyzed whether each feature should be large or small for a good sentence. If a sentence is general, it will have a small specificity value, since this value is basedon hypernym distance. The count of topic words should be high, as should the weight given to the sentence for its position. Thus, to minimize the score of a good sentence, the specificity is divided by the topic word count and the position weight. In other words, the best sentences are the ones that do a good job of minimizing specificity while maximizing topic words and position.
+To achieve this, we first analyzed whether each feature should be large or small for a good sentence. If a sentence is general, it will have a small specificity value, since this value is basedon hypernym distance. The count of topic words should be high, as should the weight given to the sentence for its position. Thus, to minimize the score of a good sentence, the specificity is divided by the topic word count and the position weight : $specificity / (topic words * position) $. In other words, the best sentences are the ones that do a good job of minimizing specificity while maximizing topic words and position.
 
 \subsection{Feature Calculation and Resources}
 \vskip 1em
@@ -77,13 +77,13 @@ To achieve this, we first analyzed whether each feature should be large or small
 \noindent Sentence position was defined as whether a sentence was at the beginning of a document; the first sentence is given the highest weight, the second sentence is given a lower weight, and all other sentences are given a very low weight. The values of these weights was determined by manual testing of different weight proportions. 
 
 \subsection{Performance}
-On the development data, this system achieves a ROUGE-2 recall of 0.08973.
+On the development data, this system achieves a ROUGE-2 recall of 0.09221.
 
 \section{Discussion and Analysis}
-By counting and stemming topic words, our summarizer yields better recall in its summaries. One of our criteria of choosing summary sentences is whether the sentence contains enough topic words. In order to more accurately check if a sentence is related to the general topic, we've decided to stem both the topic words and the test input. The topic words are stemmed by specifying "performStemming=Y" in the configure file for TopicS (TopicS uses PorterStemm). Words in teach sentence are also stemmed by calling PorterStemmer.stem(). This avoids false negative (not selecting sentences that should be selected) situations where a sentence contains one or more derivatives of a topic word. Therefore, our summarizer outperforms the three basic summarizers above, because by using stemming we give such sentences an advantage over sentences that are not related to the topic.
 
-\noindent One of our criteria of choosing summary sentences is whether the sentence contains enough topic words. Therefore, our summarizer outperforms the three basic summarizers above, because by using TopicS we give such sentences an advantage over sentences that are not related to the topic.
-We experimented with stemming both topic words and testing input, and found stemming not helping in this case, with a ROUGE-2 recall at around 0.086, compared to the score for non-stemming summarizer at 0.090. This may be because the topic words in the input data are mostly very specific nouns that does not have many derived word forms. Another possible reason is that the topic words only appear in the documents in the same form, even though it may have many derived word forms. On the other hand, stemming may result in ambiguation of the specificity of a word, resulting in giving advantage to words that have similar forms (e.g. same root) with the topic, but is not closely related to the topic. In our summarizer, this tradeoff probably offsets the advantage of stemming.
+One of our criteria of choosing summary sentences is whether the sentence contains enough topic words. Therefore, our summarizer outperforms the three basic summarizers above, because by using TopicS we give such sentences an advantage over sentences that are not related to the topic.
+We experimented with stemming both topic words and testing input, and found stemming not helping in this case, with a ROUGE-2 recall at around 0.086, compared to the score for non-stemming summarizer at 0.090. This may be because the topic words in the input data are mostly very specific nouns that does not have many derived word forms. Another possible reason is that the topic words only appear in the documents in the same form, even though it may have many derived word forms. On the other hand, stemming may result in ambiguation of the specificity of a word, resulting in giving advantage to words that have similar forms (e.g. same root) with the topic, but are not closely related to the topic. In our summarizer, this tradeoff probably offsets the advantage of stemming.
+
 \begin{thebibliography}{}
 
 \bibitem[\protect\citename{Erkan and Radev}2004]{Erkan:2004}
