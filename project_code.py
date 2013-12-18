@@ -367,7 +367,7 @@ def gen_TFIDF_summary(sentences):
 
 ### Greedy KL Summarizer ### current ROUGE-2 = 0.08899
 def KLSum(input_collection, output_folder):
-  #set_redundancy(1.0)
+  set_redundancy(1.0)
   summarize(input_collection, output_folder, 3)
 
 def gen_KL_summary(sentences):
@@ -555,7 +555,7 @@ def feature_summarize(sentences):
 
 def FeatureSum(input_collection, output_folder):
   '''Our custom summarizer, cannibalized from features of an SVM classifier'''
-  set_redundancy(1.0)
+  set_redundancy(0.7)
   summarize(input_collection, output_folder, 4)
   
 
@@ -584,5 +584,5 @@ def summarize(input_collection, output_folder, method):
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
 
-summarize(DEV, './summaries', 4)
+FeatureSum(DEV, './summaries')
 # LexRankSum(DEV, '../lexPageRank')
