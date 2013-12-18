@@ -84,6 +84,22 @@ On the development data, this system achieves a ROUGE-2 recall of 0.09221.
 One of our criteria of choosing summary sentences is whether the sentence contains enough topic words. Therefore, our summarizer outperforms the three basic summarizers above, because by using TopicS we give such sentences an advantage over sentences that are not related to the topic.
 We experimented with stemming both topic words and testing input, and found stemming not helping in this case, with a ROUGE-2 recall at around 0.086, compared to the score for non-stemming summarizer at 0.090. This may be because the topic words in the input data are mostly very specific nouns that does not have many derived word forms. Another possible reason is that the topic words only appear in the documents in the same form, even though it may have many derived word forms. On the other hand, stemming may result in ambiguation of the specificity of a word, resulting in giving advantage to words that have similar forms (e.g. same root) with the topic, but are not closely related to the topic. In our summarizer, this tradeoff probably offsets the advantage of stemming.
 
+To determine the effect of each of the three features on the final ROUGE score, we conducted tests with every subset of the features. The results are shown in the table below (S = specificity, T = topic words, P = position):
+
+\begin{tabular}{|c|c|}
+\hline
+Features & ROUGE-2 Recall \\ \hline
+S+ T- P- & 0.02999 \\ \hline
+S- T+ P- & 0.07682 \\ \hline
+S- T- P+ & 0.07751 \\ \hline
+S+ T+ P- & 0.07999 \\ \hline
+S+ T- P+ & 0.07375 \\ \hline
+S- T+ P+ & 0.09157 \\ \hline
+S+ T+ P+ & 0.09221 \\ \hline
+\end{tabular}
+\vskip 1em
+These results show that topic words and position have the greatest effect on the ROUGE score. On its own, specificity performs worse than random sentence selection, which has a score of 0.045. Still, specificity does help to slightly improve the score when it is used in combination with the other features. The poor performance of the specificity feature may be due to the simplicity of its implementation; a more complex specificity metric might produce better results.
+
 \begin{thebibliography}{}
 
 \bibitem[\protect\citename{Erkan and Radev}2004]{Erkan:2004}
