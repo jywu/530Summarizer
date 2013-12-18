@@ -41,7 +41,8 @@ The sentence score is calculated over all word types, instead of all tokens. In 
 In reducing redundancy, the best similarity threshold was found to be 0.8, which resulted in the highest ROUGE-2 recall for the development data. 
 
 \subsection{LexRank System}
-DESCRIBE LEXRANK HERE
+The RexPageRank Summarizer represents each sentence as a node in the graph. Sentences are connected through an edge if they have a cosine similarity of TF-IDFover the threshold 0.1, which we found yields best results. The graph is represented as a matrix normalized in columns. 
+We used power iteration to calculate the prime eigenvector for each matrix. The stopping criteria for the iteration is when the squareroot of sum of squares of the differences between the pre-iteration and post-iteration value of each node falls to/under 0.15 (sqrt(d1^2 + d2^2 + ... + dn^2)) <= 0.1). According to our experiments, this criteria renders good rouges scores. The resulting prime eigenvector contains the final score of each sentence. Ranking the sentence according to the score, we generate a summary containing top-ranking sentences. The ROUGE-2 recall for the data is 0.07194.
 
 \subsection{Kl Divergence System}
 The KL Summarizer selects sentences to add to the summary by greedily choosing the sentence that will minimize KL divergence between the summary and the input. For this implementation, stopwords are ignored in all calculations. Because unigram distribution of stopwords is less likely to be substantially different between the summary and the input, removing them would highlight the meaningful words in the distribution. No smoothing was performed in calculating the distributions; since KL is a sum of probability calculations, a zero term does not significantly affect the output. 
@@ -71,7 +72,7 @@ To achieve this, we first analyzed whether each feature should be large or small
 \vskip 1em
 \noindent WordNet is used to determine sentence specificity. The specificity of each word in a sentence is computed as the distance between the word and the root hypernym in WordNet. Each word is designated as specific, general, or medium according to pre-determined thresholds. The specificity of the sentence is the average specificity of the nouns in that sentence. The motivation for this feature is the idea that summaries might be more likely to contain general terms instead of specific ones.
 \vskip 1em
-\noindent TopicS is used to calculate the number of topic words for the collection that are in a sentence. Sentences that contain topic words are likely to be discussing the general topic of an article, as opposed to a specific detail; these sentences should be more highly ranked.
+\noindent TopicS is used to calculate the number of topic words for the collection that are in a sentence. Sentences that contain topic words are likely to be discussing the general topic of an article, as opposed to a specific detail; these sentences should be more highly ranked. In order to more accurately identify topic sentences, we stemmed both topic words and words in testing input.
 \vskip 1em
 \noindent Sentence position was defined as whether a sentence was at the beginning of a document; the first sentence is given the highest weight, the second sentence is given a lower weight, and all other sentences are given a very low weight. The values of these weights was determined by manual testing of different weight proportions. 
 
@@ -79,7 +80,7 @@ To achieve this, we first analyzed whether each feature should be large or small
 On the development data, this system achieves a ROUGE-2 recall of 0.08973.
 
 \section{Discussion and Analysis}
-
+By counting and stemming topic words, our summarizer yields better recall in its summaries. One of our criteria of choosing summary sentences is whether the sentence contains enough topic words. In order to more accurately check if a sentence is related to the general topic, we've decided to stem both the topic words and the test input. The topic words are stemmed by specifying "performStemming=Y" in the configure file for TopicS (TopicS uses PorterStemm). Words in teach sentence are also stemmed by calling PorterStemmer.stem(). This avoids false negative (not selecting sentences that should be selected) situations where a sentence contains one or more derivatives of a topic word. Therefore, our summarizer outperforms the three basic summarizers above, because by using stemming we give such sentences an advantage over sentences that are not related to the topic.
 
 \begin{thebibliography}{}
 

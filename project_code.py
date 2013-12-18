@@ -12,7 +12,7 @@ from nltk.corpus import PlaintextCorpusReader
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 from nltk.corpus import wordnet as wn
-
+from nltk.stem import PorterStemmer
 
 ### GLOBAL VARIABLES ###
 DEV = '/home1/c/cis530/final_project/dev_input/'
@@ -25,6 +25,7 @@ STOP = set(stopwords.words('english'))
 REDUNDANCY_THRESHOLD = 0.8
 CURRENT_DIR = os.getcwd() + "/"
 TW_DIR = "topicwords/"
+STEMMER = PorterStemmer()
 
 def set_redundancy(t):
   global REDUNDANCY_THRESHOLD
@@ -160,20 +161,17 @@ def write_to_file(file_path, summary):
     f.write(summary)
     f.close()
 
-def add(x, y): return x + y
-
 def cosine_similarity(vectorX, vectorY):
     numerator = 0
     for i in range(len(vectorX)):
         numerator += vectorX[i] * vectorY[i]
-    denom_v = [v * v for v in vectorX]
-    denom_w = [w * w for w in vectorY]
-    denom = math.sqrt(reduce(add, denom_v) * reduce(add, denom_w))
+    denom_v = [(v * v) for v in vectorX]
+    denom_w = [(w * w) for w in vectorY]
+    denom = math.sqrt(sum(denom_v) * sum(denom_w))
     if denom != 0:
-        return numerator / float(denom)
+        return (numerator / denom)
     else:
         return 0
-    return result
 
 def create_feature_space(sentences):
     tokens = [word_tokenize(s) for s in sentences]
@@ -204,7 +202,7 @@ def is_valid(sent, summary, dct, vector=None):
             return False
     return True
 
-### LexRank Summarizer ### ROUGE-2 Recall (DEV) = 0.06668
+### LexRank Summarizer ###
 
 THRESHOLD = 0.1
 
@@ -219,17 +217,17 @@ def build_feature_space(all_sents, tfidf_dict):
     return feature_space
 
 def normalize_matrix(matrix):
-    #for i in range(len(matrix)):
-    #    row = matrix[i]
-    #    sum_value = sum(row)
-    #    if sum_value != 0:
-    #        matrix[i] = [(sim * 1.0 / sum_value) for sim in row]
     for i in range(len(matrix)):
-        column = [row[i] for row in matrix]
-        sum_value = sum(column)
+        row = matrix[i]
+        sum_value = sum(row)
         if sum_value != 0:
-            for row in matrix:
-                row[i] = row[i] * 1.0 /sum_value
+            matrix[i] = [(sim * 1.0 / sum_value) for sim in row]
+    #for i in range(len(matrix)):
+    #    column = [row[i] for row in matrix]
+    #    sum_value = sum(column)
+    #    if sum_value != 0:
+    #        for row in matrix:
+    #            row[i] = row[i] * 1.0 /sum_value
     return matrix 
 
 def build_similarity_matrix(feature_space):
@@ -253,8 +251,8 @@ def make_graph(feature_space, all_sents):
         for col in range(len(matrix)):
             if matrix[row][col] > THRESHOLD:
                 graph[row][col] = 1
-    # return normalize_matrix(graph)
-    return graph
+    return normalize_matrix(graph)
+    # return graph
 
 def column_value_positive(index, vectors):
     for row in vectors:
@@ -263,12 +261,8 @@ def column_value_positive(index, vectors):
     return True
 
 def get_eigenvector(graph):
-    # print graph
     values, vectors = LA.eig(normalize_matrix(graph))
     max_index = np.argmax(values)
-    # print values
-    # print vectors 
-    # print 'max_index', max_index
     if column_value_positive(max_index, vectors):
         # print 'Using vector!!!!!!!'
         eig_vector = []
@@ -277,20 +271,39 @@ def get_eigenvector(graph):
     else:
         # print 'Using sum of row!!!!!'
         eig_vector = [sum(row) for row in graph]
-    # print 'eig_vector'
-    # print eig_vector
     return eig_vector
 
+STOP_LEVEL = 0.1
+
 def page_rank_iteration(graph, all_sents):
-    # sums = [sum(row) for row in graph]
-    # score_dict = dict(zip(all_sents, sums))
-    eig_vector = get_eigenvector(graph)
-    # sort according to value, and get top sentences
-    score_dict = dict()
-    for i in range(len(all_sents)):
-        score_dict[all_sents[i]] = eig_vector[i]
+    size_range = range(len(graph))
+    score_dict = dict((i, 1.0) for i in size_range)
+    share_dict = dict((i, 0.0) for i in size_range)
+    graph_dict = dict((i, list()) for i in size_range)
+    for i in size_range:
+        for j in range(i, len(graph)):
+            if graph[i][j] != 0:
+                graph_dict[i].append(j)
+                graph_dict[j].append(i)
+    diff = 1
+    while(diff > STOP_LEVEL):
+        for node in size_range:
+            neighbours = graph_dict[node]
+            if len(neighbours) != 0:
+                share = score_dict[node] / len(neighbours)
+                for neighbour in neighbours:
+                    share_dict[neighbour] += share
+        diff = 0
+        for node in size_range:
+            old_score = score_dict[node]
+            share = share_dict[node]
+            score_dict[node] = share
+            diff += (score_dict[node] - old_score)**2
+            share_dict[node] = 0
+        diff = math.sqrt(diff)
     sorted_dict = sorted(score_dict.iteritems(), key=itemgetter(1), reverse=True)
-    return [entry[0] for entry in sorted_dict]
+    result =  [all_sents[entry[0]] for entry in sorted_dict]
+    return result
 
 def get_top_sentences(sents, num_words, tfidf_dict):
     num_token = 0
@@ -307,11 +320,11 @@ def lex_sum_helper(dir_path):
     tfidf_dict = make_tfidf_dict(all_sents)
     feature_space = build_feature_space(all_sents, tfidf_dict)
     # feature_space = create_feature_space(all_sents)
-    print 'feature_space!'
+    print 'Built feature_space!'
     graph = make_graph(feature_space,all_sents)
-    print 'graph!'
+    print 'Built graph matrix!'
     sorted_sents = page_rank_iteration(graph, all_sents)
-    print 'sorted sents!'
+    print 'Eigenvector generated. Sorted sents according to score!'
     filtered_sents = get_top_sentences(sorted_sents, 100, tfidf_dict)
     summary = '\n'.join(filtered_sents)
     return summary
@@ -319,7 +332,6 @@ def lex_sum_helper(dir_path):
 def LexRankSum(input_collection, output_folder):
   summarize(input_collection, output_folder, 2)
     
-# LexRankSum(DEV, '../lexPageRank')
 
 ### TF-IDF Summarizer ### ROUGE-2 Recall (DEV) = 0.07807
 def TFIDFSum(input_collection, output_folder):
@@ -408,14 +420,13 @@ def update(sum_dict, sent_dict):
   for (word, freq) in sent_dict.items():
     sum_dict[word] = sum_dict.get(word, 0.0) + freq
 
-### Our Summarizer ###
-#features: (subject to change)
-## NER: the number of each type of named entity in the sentence
+### Our Summarizer Rouge-2 Recall: 0.08936 ###
+#features:
 ## topic words: how many topic words in the entire collection are found in the sentence
-## sentiment words: the number of each type of sentiment word in the sentence
 ## sentence position in document
 ## specificity: the number of words with high/medium/low specificity
 
+### feature: specificity ###
 def hypernym_distance(word): #From HW4
   '''Finds shortest distance between noun senses of the word and the root hypernym'''
   paths = []
@@ -440,7 +451,6 @@ def compute_specificity(sentence):
   if total_words == 0 : return 1.0
   return spec_sum / total_words
 
-
 #### feature: topic words ####
 def load_topic_words(topic_file):
     dct = {}
@@ -460,7 +470,7 @@ def get_top_n_topic_words(topic_words_dict, n):
     return sorted_list
 
 def write_config_files(dev_path):
-  dirs = get_sub_directories(dev_path)
+  dirs = get_sub_directories(DEV)
   ts_files = []
   config_files = []
   if not os.path.isdir(TW_DIR): os.mkdir(TW_DIR)
@@ -469,7 +479,7 @@ def write_config_files(dev_path):
     if not os.path.exists(ts_file):
         config_file = CURRENT_DIR + TW_DIR + 'config_' + directory
         content = 'stopFilePath = stoplist-smart-sys.txt\n'
-        content += 'performStemming = N\n'
+        content += 'performStemming = Y\n'
         content += 'backgroundCorpusFreqCounts = bgCounts-Giga.txt\n'
         content += 'topicWordCutoff = 0.1\n'
         content += 'inputDir = ' + dev_path + directory + '\n'
@@ -494,9 +504,10 @@ def get_top_topic_words(ts_file, n):
 
 def count_sentence_topic_words(sentence):
     words = word_tokenize(sentence)
+    for word in words:
+        word = STEMMER.stem(word)
     intersect = set(words).intersection(set(TOPIC_WORDS))
     return len(intersect)
-
 
 #### feature: sentence position ####
 def build_sentence_position_dict(directory):
@@ -555,16 +566,21 @@ def summarize(input_collection, output_folder, method):
   dir_list = get_sub_directories(input_collection)
   for i in range(len(dir_list)):
     directory = dir_list[i]
+    print '-------------------------------------------------'
+    print 'Summarizing', directory, '...'
     sentences = load_collection_sentences(input_collection + directory)
+    print len(sentences), 'sentences'
     if (method == 1): summary = gen_TFIDF_summary(sentences)
     elif (method == 2) : summary = lex_sum_helper(input_collection + directory)
     elif (method == 3) : summary = gen_KL_summary(sentences)
     elif (method == 4) : 
         global TOPIC_WORDS
-        TOPIC_WORDS = get_top_topic_words(ts_files[i], 20)
+        TOPIC_WORDS = get_top_topic_words(ts_files[i], 30)
         build_sentence_position_dict(input_collection + directory)
         summary = feature_summarize(sentences)
     else : summary = ""
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
 
+# summarize(DEV, '../ours', 4)
+# LexRankSum(DEV, '../lexPageRank')
