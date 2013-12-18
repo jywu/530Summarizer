@@ -23,7 +23,7 @@ For this project, we have implemented three basic summarizers: a TF*IDF summariz
 \end{abstract}
 
 \section{General Parameters}
-Some system parameters are consistent for all of the summarizers. 
+Some system parameters are consistent for all of the summarizers:
 \begin{itemize}
 \item Each summarizer takes two parameters: an input collection with groups of documents to summarize, and the output folder in which to save the summaries.
 \item The summarizer output is named by prefixing the name of the current subdirectory with ''sum\_''. For instance, the input collection subdirectory ''dev\_00'' would produce the summary ''sum\_dev\_00.txt''.
@@ -53,34 +53,34 @@ The threshold for removing redundant sentences is set to 1, which means that sen
 \begin{tabular}{|c|c|c|c|}
   \hline
   System & TF*IDF & LexRank & KL  \\ \hline
-  Rouge-2 Recall & *.** & *.** & *.**** \\
+  Rouge-2 Recall & 0.07807 & 0.072 & 0.08899 \\
   \hline
 \end{tabular}
-%\begin{tabular}{|c|c|}
-%  \hline
-%  System & Rouge-2 Recall \\ \hline
-%  TF*IDF & *.** \\ \hline
-%  LexRank & *.** \\ \hline
-%  KL Divergence & *.** \\ \hline
-%\end{tabular}
 
 
-\section{Your Summarization System}
+\section{Our Summarization System: FeatureSum}
 
 \subsection{System Design}
 Our summarizer is designed around the idea that there are certain features that are distinctive of good summaries. Summaries should address the main points of the documents being summarized. In addition, human-written summaries tend to be general rather than specific. At first, we used these and other intuitions about summaries to build features for a classifier that would rank the sentences using SVMRank. However, this system was ineffective, with a prohibitively long runtime and a subpar automatic annotation component. To avoid these issues, we pared down the list of features and removed the need for supervised learning, creating a method of scoring sentences that does not require weighting or normalizing of features. 
 
-The scoring mechanism of the summarizer uses three features from the classifier: specificity, topic words, and sentence position. These features were chosen because their relationship to the notion of a "good" summary is fairly predictable, whereas the effect other features (such as named entities and word polarity) was less intuitive. In the summarizer, sentences are ranked in Python's implementation of a priority queue, which returns elements in order from smallest to greatest priority. Therefore, the scores needed to be generated such that a lower score means that a sentence is more likely to be included in the summary....  
+The scoring mechanism of the summarizer uses three features from the classifier: specificity, topic words, and sentence position. These features were chosen because their relationship to the notion of a "good" summary is fairly predictable, whereas the effect other features (such as named entities and word polarity) was less intuitive. For descriptions of the calculation of feature values, see the following section.
 
-\subsection{Resources \& Tools Used}
+In the summarizer, sentences are ranked in Python's implementation of a priority queue, which returns elements in order from smallest to greatest priority. Therefore, the scores needed to be generated such that a lower score means that a sentence is more likely to be included in the summary.
+To achieve this, we first analyzed whether each feature should be large or small for a good sentence. If a sentence is general, it will have a small specificity value, since this value is basedon hypernym distance. The count of topic words should be high, as should the weight given to the sentence for its position. Thus, to minimize the score of a good sentence, the specificity is divided by the topic word count and the position weight. In other words, the best sentences are the ones that do a good job of minimizing specificity while maximizing topic words and position.
+
+\subsection{Feature Calculation and Resources}
 \vskip 1em
 \noindent WordNet is used to determine sentence specificity. The specificity of each word in a sentence is computed as the distance between the word and the root hypernym in WordNet. Each word is designated as specific, general, or medium according to pre-determined thresholds. The specificity of the sentence is the average specificity of the nouns in that sentence. The motivation for this feature is the idea that summaries might be more likely to contain general terms instead of specific ones.
 \vskip 1em
-\noindent TopicS is used for another feature pertaining to the topic words in set of documents. Sentences contain topic words are likely to be discussing the general topic of an article, as opposed to a specific detail; these sentences should be more highly ranked. 
+\noindent TopicS is used to calculate the number of topic words for the collection that are in a sentence. Sentences that contain topic words are likely to be discussing the general topic of an article, as opposed to a specific detail; these sentences should be more highly ranked. In order to more accurately identify topic sentences, we stemmed both topic words and words in testing input.
+\vskip 1em
+\noindent Sentence position was defined as whether a sentence was at the beginning of a document; the first sentence is given the highest weight, the second sentence is given a lower weight, and all other sentences are given a very low weight. The values of these weights was determined by manual testing of different weight proportions. 
 
 \subsection{Performance}
+On the development data, this system achieves a ROUGE-2 recall of 0.08973.
 
 \section{Discussion and Analysis}
+By counting and stemming topic words, our summarizer yields better recall in its summaries. One of our criteria of choosing summary sentences is whether the sentence contains enough topic words. In order to more accurately check if a sentence is related to the general topic, we've decided to stem both the topic words and the test input. The topic words are stemmed by specifying "performStemming=Y" in the configure file for TopicS (TopicS uses PorterStemm). Words in teach sentence are also stemmed by calling PorterStemmer.stem(). This avoids false negative (not selecting sentences that should be selected) situations where a sentence contains one or more derivatives of a topic word. Therefore, our summarizer outperforms the three basic summarizers above, because by using stemming we give such sentences an advantage over sentences that are not related to the topic.
 
 \noindent One of our criteria of choosing summary sentences is whether the sentence contains enough topic words. Therefore, our summarizer outperforms the three basic summarizers above, because by using TopicS we give such sentences an advantage over sentences that are not related to the topic.
 We experimented with stemming both topic words and testing input, and found stemming not helping in this case, with a ROUGE-2 recall at around 0.086, compared to the score for non-stemming summarizer at 0.090. This may be because the topic words in the input data are mostly very specific nouns that does not have many derived word forms. Another possible reason is that the topic words only appear in the documents in the same form, even though it may have many derived word forms. On the other hand, stemming may result in ambiguation of the specificity of a word, resulting in giving advantage to words that have similar forms (e.g. same root) with the topic, but is not closely related to the topic. In our summarizer, this tradeoff probably offsets the advantage of stemming.
