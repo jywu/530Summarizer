@@ -161,20 +161,17 @@ def write_to_file(file_path, summary):
     f.write(summary)
     f.close()
 
-def add(x, y): return x + y
-
 def cosine_similarity(vectorX, vectorY):
     numerator = 0
     for i in range(len(vectorX)):
         numerator += vectorX[i] * vectorY[i]
-    denom_v = [v * v for v in vectorX]
-    denom_w = [w * w for w in vectorY]
-    denom = math.sqrt(reduce(add, denom_v) * reduce(add, denom_w))
+    denom_v = [(v * v) for v in vectorX]
+    denom_w = [(w * w) for w in vectorY]
+    denom = math.sqrt(sum(denom_v) * sum(denom_w))
     if denom != 0:
-        return numerator / float(denom)
+        return (numerator / denom)
     else:
         return 0
-    return result
 
 def create_feature_space(sentences):
     tokens = [word_tokenize(s) for s in sentences]
@@ -205,7 +202,7 @@ def is_valid(sent, summary, dct, vector=None):
             return False
     return True
 
-### LexRank Summarizer ### ROUGE-2 Recall (DEV) = 0.06668
+### LexRank Summarizer ###
 
 THRESHOLD = 0.1
 
@@ -220,17 +217,17 @@ def build_feature_space(all_sents, tfidf_dict):
     return feature_space
 
 def normalize_matrix(matrix):
-    #for i in range(len(matrix)):
-    #    row = matrix[i]
-    #    sum_value = sum(row)
-    #    if sum_value != 0:
-    #        matrix[i] = [(sim * 1.0 / sum_value) for sim in row]
     for i in range(len(matrix)):
-        column = [row[i] for row in matrix]
-        sum_value = sum(column)
+        row = matrix[i]
+        sum_value = sum(row)
         if sum_value != 0:
-            for row in matrix:
-                row[i] = row[i] * 1.0 /sum_value
+            matrix[i] = [(sim * 1.0 / sum_value) for sim in row]
+    #for i in range(len(matrix)):
+    #    column = [row[i] for row in matrix]
+    #    sum_value = sum(column)
+    #    if sum_value != 0:
+    #        for row in matrix:
+    #            row[i] = row[i] * 1.0 /sum_value
     return matrix 
 
 def build_similarity_matrix(feature_space):
@@ -254,8 +251,8 @@ def make_graph(feature_space, all_sents):
         for col in range(len(matrix)):
             if matrix[row][col] > THRESHOLD:
                 graph[row][col] = 1
-    # return normalize_matrix(graph)
-    return graph
+    return normalize_matrix(graph)
+    # return graph
 
 def column_value_positive(index, vectors):
     for row in vectors:
@@ -280,7 +277,8 @@ STOP_LEVEL = 0.1
 
 def page_rank_iteration(graph, all_sents):
     size_range = range(len(graph))
-    score_dict = dict((i, (1, 0)) for i in size_range)
+    score_dict = dict((i, 1.0) for i in size_range)
+    share_dict = dict((i, 0.0) for i in size_range)
     graph_dict = dict((i, list()) for i in size_range)
     for i in size_range:
         for j in range(i, len(graph)):
@@ -288,35 +286,25 @@ def page_rank_iteration(graph, all_sents):
                 graph_dict[i].append(j)
                 graph_dict[j].append(i)
     diff = 1
-    while(diff < STOP_LEVEL):
+    while(diff > STOP_LEVEL):
         for node in size_range:
             neighbours = graph_dict[node]
-            share = score_dict[node][0] / len(neighbours)
-            score_dict[node][0] = 0
-            for neighbour in neighbours:
-                score_dict[neighbour][1] += share
+            if len(neighbours) != 0:
+                share = score_dict[node] / len(neighbours)
+                for neighbour in neighbours:
+                    share_dict[neighbour] += share
         diff = 0
         for node in size_range:
-            share = score_dict[node][1]
-            score_dict[node][0] += share
-            score_dict[node][1] = 0
-            diff += share * share
+            old_score = score_dict[node]
+            share = share_dict[node]
+            score_dict[node] = share
+            diff += (score_dict[node] - old_score)**2
+            share_dict[node] = 0
         diff = math.sqrt(diff)
     sorted_dict = sorted(score_dict.iteritems(), key=itemgetter(1), reverse=True)
     result =  [all_sents[entry[0]] for entry in sorted_dict]
     return result
-''' 
-def page_rank_iteration(graph, all_sents):
-    # sums = [sum(row) for row in graph]
-    # score_dict = dict(zip(all_sents, sums))
-    eig_vector = get_eigenvector(graph)
-    # sort according to value, and get top sentences
-    score_dict = dict()
-    for i in range(len(all_sents)):
-        score_dict[all_sents[i]] = eig_vector[i]
-    sorted_dict = sorted(score_dict.iteritems(), key=itemgetter(1), reverse=True)
-    return [entry[0] for entry in sorted_dict]
-'''
+
 def get_top_sentences(sents, num_words, tfidf_dict):
     num_token = 0
     result = []
@@ -432,8 +420,8 @@ def update(sum_dict, sent_dict):
   for (word, freq) in sent_dict.items():
     sum_dict[word] = sum_dict.get(word, 0.0) + freq
 
-### Our Summarizer Rouge-2 Recall: 0.08253 ###
-#features: (subject to change)
+### Our Summarizer Rouge-2 Recall: 0.08936 ###
+#features:
 ## topic words: how many topic words in the entire collection are found in the sentence
 ## sentence position in document
 ## specificity: the number of words with high/medium/low specificity
@@ -529,45 +517,49 @@ def count_sentence_topic_words(sentence):
 
 #### feature: sentence position ####
 def build_sentence_position_dict(directory):
-    dct = dict()
-    files = get_all_files(directory)
-    for f in files:
-        sents = load_file_sentences(directory +'/'+f)
-        length = len(sents)
-        for i in range(length):
-            dct[sents[i]] = length - i
-    global POSITION_DICT
-    POSITION_DICT = dct
+  pos_dict = {}
+  files = get_all_files(directory)
+  for f in files:
+    sents = load_file_sentences(directory +'/'+f)
+    for i in range(len(sents)): 
+      if i == 0: pos_dict[sents[i]] = 2.5
+      elif i == 1: pos_dict[sents[i]] = 1
+      else: pos_dict[sents[i]] = .1
+  global POSITION_DICT
+  POSITION_DICT = pos_dict
 
 def get_sentence_position(sentence):
     sentence = sentence.lower()
     return POSITION_DICT[sentence]
 
 def score_sentence(sentence):
-    spec = count_specificities(sentence)
-    ts_count = count_sentence_topic_words(sentence)
-    position = get_sentence_position(sentence)
-    if ts_count == 0: return spec[-1] * 2
-    if spec[-1] == 0: return -(ts_count * position)
-    return  - (ts_count * position) / spec[-1]
+  '''Score sentence based on topic word count and average specificity'''
+  spec = count_specificities(sentence)
+  ts_count = count_sentence_topic_words(sentence)
+  position = get_sentence_position(sentence)
+  if ts_count == 0: ts_count = 0.5
+  return spec[-1] / (position * ts_count)
 
 def test_helper(sentences):
-    summary = []
-    tfidf_dict = make_tfidf_dict(sentences)
+  '''Summarize using sentence specificity and topic words'''
+  summary = []
+  tfidf_dict = make_tfidf_dict(sentences)
+  scores = []
+  for sentence in sentences:
+    scores.append(score_sentence(sentence))
 
-    scores = []
-    for sentence in sentences:
-        scores.append(score_sentence(sentence))
-    pq = PriorityQueue()
-    for pair in zip(scores, sentences):
-        pq.put(pair)
-    while summary_length(summary) <= 100 and not pq.empty():
-        score, next_sentence = pq.get()
-        if is_valid(next_sentence, summary, tfidf_dict):
-            summary.append(next_sentence)
-    return "\n".join(summary)
+  pq = PriorityQueue()
+  for pair in zip(scores, sentences):
+    pq.put(pair)
+  while summary_length(summary) <= 100 and not pq.empty():
+    score, next_sentence = pq.get()
+    if is_valid(next_sentence, summary, tfidf_dict):
+      summary.append(next_sentence)
+  return "\n".join(summary)
 
 def summarize(input_collection, output_folder, method):
+  '''Creates summaries of input_collection documents using specified method'''
+  '''1 = TF*IDF, 2 = LexRank, 3 = KL, 4 = our summarizer'''
   if not input_collection.endswith('/'): input_collection += '/'
   if not output_folder.endswith('/'): output_folder += '/'
   if method == 4: ts_files = gen_ts_files(input_collection)
@@ -591,5 +583,5 @@ def summarize(input_collection, output_folder, method):
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
 
-summarize(DEV, '../ours', 4)
+# summarize(DEV, '../ours', 4)
 # LexRankSum(DEV, '../lexPageRank')
