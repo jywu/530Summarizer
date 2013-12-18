@@ -420,7 +420,7 @@ def update(sum_dict, sent_dict):
   for (word, freq) in sent_dict.items():
     sum_dict[word] = sum_dict.get(word, 0.0) + freq
 
-### Our Summarizer Rouge-2 Recall: 0.08936 ###
+### Our Summarizer ###
 #features:
 ## topic words: how many topic words in the entire collection are found in the sentence
 ## sentence position in document
@@ -479,7 +479,7 @@ def write_config_files(dev_path):
     if not os.path.exists(ts_file):
         config_file = CURRENT_DIR + TW_DIR + 'config_' + directory
         content = 'stopFilePath = stoplist-smart-sys.txt\n'
-        content += 'performStemming = Y\n'
+        content += 'performStemming = N\n'
         content += 'backgroundCorpusFreqCounts = bgCounts-Giga.txt\n'
         content += 'topicWordCutoff = 0.1\n'
         content += 'inputDir = ' + dev_path + directory + '\n'
@@ -504,8 +504,8 @@ def get_top_topic_words(ts_file, n):
 
 def count_sentence_topic_words(sentence):
     words = word_tokenize(sentence)
-    for word in words:
-        word = STEMMER.stem(word)
+    # for word in words:
+      #   word = STEMMER.stem(word)
     intersect = set(words).intersection(set(TOPIC_WORDS))
     return len(intersect)
 
@@ -582,5 +582,5 @@ def summarize(input_collection, output_folder, method):
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
 
-# summarize(DEV, '../ours', 4)
+summarize(DEV, '../ours', 4)
 # LexRankSum(DEV, '../lexPageRank')
