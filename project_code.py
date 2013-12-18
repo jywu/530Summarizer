@@ -6,13 +6,12 @@ from operator import itemgetter
 from Queue import PriorityQueue
 import numpy as np
 from numpy import linalg as LA
-import math, os, operator, subprocess, re
+import math, os, operator, subprocess
 from nltk import FreqDist
 from nltk.corpus import PlaintextCorpusReader
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 from nltk.corpus import wordnet as wn
-from nltk.stem import PorterStemmer
 
 ### GLOBAL VARIABLES ###
 DEV = '/home1/c/cis530/final_project/dev_input/'
@@ -27,6 +26,7 @@ CURRENT_DIR = os.getcwd() + "/"
 TW_DIR = "topicwords/"
 
 def set_redundancy(t):
+  '''Changes redundancy threshold for determining if a sentence should be added to summary'''
   global REDUNDANCY_THRESHOLD
   REDUNDANCY_THRESHOLD = t
 
@@ -37,6 +37,7 @@ def get_all_files(path):
   return files_all.fileids()
 
 def get_sub_directories(path):
+  '''Returns a list of subdirectories in path'''
   return [filename for filename in os.listdir(path) if os.path.isdir(os.path.join(path, filename))]
 
 def load_file_sentences(filename):
@@ -66,6 +67,7 @@ def load_collection_tokens(path):
   return lists
 
 def get_dir_words(path):
+  '''Get all word tokens in path'''
   if (os.path.isdir(path)):
     return load_collection_tokens(path);
   return load_file_tokens(path)
@@ -118,7 +120,8 @@ def read_idf_file(idf_file):
     idf_dict[pair[0]] = float(pair[1])
   f.close()
   return idf_dict
-    
+
+#Load NYT IDF data
 if os.path.isfile("nyt_idf.data"):
   NYT_IDF = read_idf_file("nyt_idf.data")
 else:
@@ -339,6 +342,7 @@ def LexRankSum(input_collection, output_folder):
 
 ### TF-IDF Summarizer ### ROUGE-2 Recall (DEV) = 0.07807
 def TFIDFSum(input_collection, output_folder):
+  '''Creates TF*IDF summaries of input collection'''
   set_redundancy(0.8)
   summarize(input_collection, output_folder, 1)
 
@@ -367,10 +371,12 @@ def gen_TFIDF_summary(sentences):
 
 ### Greedy KL Summarizer ### current ROUGE-2 = 0.08899
 def KLSum(input_collection, output_folder):
+  '''Creates KL summaries of input collection'''
   set_redundancy(1.0)
   summarize(input_collection, output_folder, 3)
 
 def gen_KL_summary(sentences):
+  '''Makes KL summary for list of sentences'''
   summary = []
   summary_words = []
   summary_freqs = {}
@@ -457,6 +463,7 @@ def compute_specificity(sentence):
 
 #### feature: topic words ####
 def load_topic_words(topic_file):
+  '''Creates a dictionary of topic words and their distribution'''
   dct = {}
   f = open(topic_file, 'r')
   content = f.read()
@@ -469,11 +476,14 @@ def load_topic_words(topic_file):
   return dct
 
 def get_top_n_topic_words(topic_words_dict, n):
+  '''Returns a sorted list of top n-ranked topic words'''
   sorted_dict = sorted(topic_words_dict.iteritems(), key=lambda item: -item[1])
   sorted_list = [ x[0] for x in sorted_dict[:n] ]
   return sorted_list
 
 def write_config_files(dev_path):
+  '''Writes config files for ts files that need to be made'''
+  '''Returns list of config files (only the ones for ts files that don't exist) and ts_files (all that are used for this input_collection'''
   dirs = get_sub_directories(DEV)
   ts_files = []
   config_files = []
@@ -495,6 +505,7 @@ def write_config_files(dev_path):
   return config_files, ts_files  
 
 def gen_ts_files(dev_path):
+  '''Calls TopicS tools to make ts files'''
   config_files, ts_files = write_config_files(dev_path)
   os.chdir("/home1/c/cis530/hw4/TopicWords-v2/")
   for config_file in config_files:
@@ -503,16 +514,19 @@ def gen_ts_files(dev_path):
   return ts_files 
 
 def get_top_topic_words(ts_file, n):
+  '''Returns list of top n topic words in ts file'''
   dct = load_topic_words(ts_file)
   return  get_top_n_topic_words(dct, n)
 
 def count_sentence_topic_words(sentence):
+  '''Counts the topic words in sentence'''
   words = word_tokenize(sentence)
   intersect = set(words).intersection(set(TOPIC_WORDS))
   return len(intersect)
 
 #### feature: sentence position ####
 def build_sentence_position_dict(directory):
+  '''Creates a dictionary mapping sentences to their position scores'''
   pos_dict = {}
   files = get_all_files(directory)
   for f in files:
@@ -525,6 +539,7 @@ def build_sentence_position_dict(directory):
   POSITION_DICT = pos_dict
 
 def get_sentence_position(sentence):
+  '''Returns sentence's position score'''
   sentence = sentence.lower()
   return POSITION_DICT[sentence]
 
