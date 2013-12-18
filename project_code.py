@@ -25,7 +25,6 @@ STOP = set(stopwords.words('english'))
 REDUNDANCY_THRESHOLD = 0.8
 CURRENT_DIR = os.getcwd() + "/"
 TW_DIR = "topicwords/"
-STEMMER = PorterStemmer()
 
 def set_redundancy(t):
   global REDUNDANCY_THRESHOLD
@@ -152,55 +151,60 @@ def summary_length(summary_list):
   return reduce(lambda acc, sen: acc + len(word_tokenize(sen)), summary_list, 0)
 
 def gen_output_filename(directory):
-    '''Creates an output file name by adding sum_ to input dir name'''
-    return 'sum_' + directory + '.txt'
+  '''Creates an output file name by adding sum_ to input dir name'''
+  return 'sum_' + directory + '.txt'
 
 def write_to_file(file_path, summary):
-    '''Writes the given summary to file'''
-    f = open(file_path, 'w')
-    f.write(summary)
-    f.close()
+  '''Writes the given summary to file'''
+  f = open(file_path, 'w')
+  f.write(summary)
+  f.close()
 
 def cosine_similarity(vectorX, vectorY):
-    numerator = 0
-    for i in range(len(vectorX)):
-        numerator += vectorX[i] * vectorY[i]
-    denom_v = [(v * v) for v in vectorX]
-    denom_w = [(w * w) for w in vectorY]
-    denom = math.sqrt(sum(denom_v) * sum(denom_w))
-    if denom != 0:
-        return (numerator / denom)
-    else:
-        return 0
+  '''Calculates cosine similarity of two vectors'''
+  numerator = 0
+  for i in range(len(vectorX)):
+    numerator += vectorX[i] * vectorY[i]
+  denom_v = [(v * v) for v in vectorX]
+  denom_w = [(w * w) for w in vectorY]
+  denom = math.sqrt(sum(denom_v) * sum(denom_w))
+  if denom != 0:
+    return (numerator / denom)
+  else:
+    return 0
 
 def create_feature_space(sentences):
-    tokens = [word_tokenize(s) for s in sentences]
-    vocabulary = set(reduce(lambda x, y: x + y, tokens))
-    return dict([(voc, i) for (i, voc) in enumerate(vocabulary)])
+  '''Creates feature space of words in sentences, to make vector representations'''
+  tokens = [word_tokenize(s) for s in sentences]
+  vocabulary = set(reduce(lambda x, y: x + y, tokens))
+  return dict([(voc, i) for (i, voc) in enumerate(vocabulary)])
 
 def vectorize_w(feature_space, vocabulary,dct):
-    vectors = [0] * len(feature_space)
-    for word in vocabulary:
-        if (feature_space.has_key(word)):
-            vectors[feature_space[word]] = dct.get(word, 0)
-    return vectors
+  '''Makes vectors representation of vocabulary'''
+  vectors = [0] * len(feature_space)
+  for word in vocabulary:
+    if (feature_space.has_key(word)):
+      vectors[feature_space[word]] = dct.get(word, 0)
+  return vectors
 
 def vectorize(feature_space, sentence, dct):
-    return vectorize_w(feature_space, list(set(word_tokenize(sentence))), dct)
+  '''Makes vector representation of a sentence'''
+  return vectorize_w(feature_space, list(set(word_tokenize(sentence))), dct)
 
 def is_valid(sent, summary, dct, vector=None):
-    num_words = len(word_tokenize(sent))
-    if num_words < 9 or num_words > 45: #need to determine threshold
-        return False;
-    if len(summary) == 0: return True
-    if vector == None: vector = create_feature_space(summary)
-    vector_x = vectorize(vector, sent, dct)
-    for sum_sent in summary:
-        vector_y = vectorize(vector, sum_sent, dct)
-        sim = cosine_similarity(vector_x, vector_y)
-        if sim > REDUNDANCY_THRESHOLD: #need to determine threshold
-            return False
-    return True
+  '''Determines if a sentence should be added to summary, given tf*idf dictionary'''
+  num_words = len(word_tokenize(sent))
+  if num_words < 9 or num_words > 45: #need to determine threshold
+    return False;
+  if len(summary) == 0: return True
+  if vector == None: vector = create_feature_space(summary)
+  vector_x = vectorize(vector, sent, dct)
+  for sum_sent in summary:
+    vector_y = vectorize(vector, sum_sent, dct)
+    sim = cosine_similarity(vector_x, vector_y)
+    if sim > REDUNDANCY_THRESHOLD: #need to determine threshold
+      return False
+  return True
 
 ### LexRank Summarizer ###
 
@@ -424,7 +428,7 @@ def update(sum_dict, sent_dict):
 #features:
 ## topic words: how many topic words in the entire collection are found in the sentence
 ## sentence position in document
-## specificity: the number of words with high/medium/low specificity
+## specificity: average hypernym distance of nouns
 
 ### feature: specificity ###
 def hypernym_distance(word): #From HW4
@@ -453,21 +457,21 @@ def compute_specificity(sentence):
 
 #### feature: topic words ####
 def load_topic_words(topic_file):
-    dct = {}
-    f = open(topic_file, 'r')
-    content = f.read()
-    f.close()
-    lines = content.split('\n')
-    for line in lines:
-        tokens = line.split()
-        if(tokens != []):
-            dct[tokens[0]] = float(tokens[1])
-    return dct
+  dct = {}
+  f = open(topic_file, 'r')
+  content = f.read()
+  f.close()
+  lines = content.split('\n')
+  for line in lines:
+    tokens = line.split()
+    if(tokens != []):
+      dct[tokens[0]] = float(tokens[1])
+  return dct
 
 def get_top_n_topic_words(topic_words_dict, n):
-    sorted_dict = sorted(topic_words_dict.iteritems(), key=lambda item: -item[1])
-    sorted_list = [ x[0] for x in sorted_dict[:n] ]
-    return sorted_list
+  sorted_dict = sorted(topic_words_dict.iteritems(), key=lambda item: -item[1])
+  sorted_list = [ x[0] for x in sorted_dict[:n] ]
+  return sorted_list
 
 def write_config_files(dev_path):
   dirs = get_sub_directories(DEV)
@@ -491,23 +495,21 @@ def write_config_files(dev_path):
   return config_files, ts_files  
 
 def gen_ts_files(dev_path):
-    config_files, ts_files = write_config_files(dev_path)
-    os.chdir("/home1/c/cis530/hw4/TopicWords-v2/")
-    for config_file in config_files:
-        os.system("java -Xmx1000m TopicSignatures " + config_file)
-    os.chdir(CURRENT_DIR)
-    return ts_files 
+  config_files, ts_files = write_config_files(dev_path)
+  os.chdir("/home1/c/cis530/hw4/TopicWords-v2/")
+  for config_file in config_files:
+    os.system("java -Xmx1000m TopicSignatures " + config_file)
+  os.chdir(CURRENT_DIR)
+  return ts_files 
 
 def get_top_topic_words(ts_file, n):
-    dct = load_topic_words(ts_file)
-    return  get_top_n_topic_words(dct, n)
+  dct = load_topic_words(ts_file)
+  return  get_top_n_topic_words(dct, n)
 
 def count_sentence_topic_words(sentence):
-    words = word_tokenize(sentence)
-    # for word in words:
-      #   word = STEMMER.stem(word)
-    intersect = set(words).intersection(set(TOPIC_WORDS))
-    return len(intersect)
+  words = word_tokenize(sentence)
+  intersect = set(words).intersection(set(TOPIC_WORDS))
+  return len(intersect)
 
 #### feature: sentence position ####
 def build_sentence_position_dict(directory):
@@ -523,8 +525,8 @@ def build_sentence_position_dict(directory):
   POSITION_DICT = pos_dict
 
 def get_sentence_position(sentence):
-    sentence = sentence.lower()
-    return POSITION_DICT[sentence]
+  sentence = sentence.lower()
+  return POSITION_DICT[sentence]
 
 def score_sentence(sentence):
   '''Score sentence based on topic word count and average specificity'''
@@ -575,12 +577,12 @@ def summarize(input_collection, output_folder, method):
     elif (method == 3) : summary = gen_KL_summary(sentences)
     elif (method == 4) : 
         global TOPIC_WORDS
-        TOPIC_WORDS = get_top_topic_words(ts_files[i], 30)
+        TOPIC_WORDS = get_top_topic_words(ts_files[i], 20)
         build_sentence_position_dict(input_collection + directory)
         summary = feature_summarize(sentences)
     else : summary = ""
     output = output_folder + gen_output_filename(directory)
     write_to_file(output, summary)
 
-summarize(DEV, '../ours', 4)
+#summarize(DEV, '../ours', 4)
 # LexRankSum(DEV, '../lexPageRank')
